@@ -1,0 +1,37 @@
+{
+  "id": "bridge-01",
+  "title": "Birinchi ko‘prik",
+  "subtitle": "Ikki qirg‘oqni bog‘lang",
+  "difficulty": 1,
+  "budget": 80,
+  "parBudget": 56,
+  "costPerUnit": 0.1,
+  "stabilityThreshold": 0.55,
+  "threeStarStability": 0.9,
+  "startNodeId": "a",
+  "finishNodeId": "e",
+  "roadNodeIds": ["a", "b", "c", "d", "e"],
+  "supportPolicy": "connected",
+  "nodes": [
+    { "id": "a", "x": 120, "y": 300, "type": "anchor" },
+    { "id": "b", "x": 260, "y": 300, "type": "road" },
+    { "id": "c", "x": 400, "y": 300, "type": "road" },
+    { "id": "d", "x": 540, "y": 300, "type": "road" },
+    { "id": "e", "x": 680, "y": 300, "type": "anchor" }
+  ],
+  "fixedEdges": [],
+  "buildRules": {
+    "allowedEdgeTypes": ["road", "support"],
+    "maxEdgeLength": 160,
+    "allowDuplicateEdges": false
+  },
+  "stabilityConfig": {
+    "wC": 1,
+    "wT": 0,
+    "wU": 0,
+    "wV": 0,
+    "maxUnbracedSpan": 160
+  },
+  "scoreConfig": { "base": 500, "savingBonus": 250, "stabilityBonus": 250 },
+  "vehicle": { "speed": 140, "width": 34, "height": 20 }
+}

@@ -1,0 +1,64 @@
+{
+  "id": "bridge-02",
+  "title": "Tayanch kuchi",
+  "subtitle": "Yo?lga mustahkam tayanch bering",
+  "difficulty": 2,
+  "budget": 155,
+  "parBudget": 135,
+  "costPerUnit": 0.1,
+  "stabilityThreshold": 0.8,
+  "threeStarStability": 0.9,
+  "startNodeId": "a",
+  "finishNodeId": "e",
+  "roadNodeIds": ["a", "b", "e"],
+  "supportPolicy": "braced",
+  "nodes": [
+    {
+      "id": "a",
+      "x": 120,
+      "y": 300,
+      "type": "anchor"
+    },
+    {
+      "id": "b",
+      "x": 400,
+      "y": 300,
+      "type": "road"
+    },
+    {
+      "id": "e",
+      "x": 680,
+      "y": 300,
+      "type": "anchor"
+    },
+    {
+      "id": "f",
+      "x": 400,
+      "y": 150,
+      "type": "joint"
+    }
+  ],
+  "fixedEdges": [],
+  "buildRules": {
+    "allowedEdgeTypes": ["road", "support"],
+    "maxEdgeLength": 350,
+    "allowDuplicateEdges": false
+  },
+  "stabilityConfig": {
+    "wC": 0.6,
+    "wT": 0.4,
+    "wU": 0.2,
+    "wV": 0.1,
+    "maxUnbracedSpan": 300
+  },
+  "scoreConfig": {
+    "base": 500,
+    "savingBonus": 250,
+    "stabilityBonus": 250
+  },
+  "vehicle": {
+    "speed": 140,
+    "width": 34,
+    "height": 20
+  }
+}

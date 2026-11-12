@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.tools/
+.superpowers/
+.playwright-cli/
+output/
+test-results/
+playwright-report/
+*.log
+.env*
+!.env.example
