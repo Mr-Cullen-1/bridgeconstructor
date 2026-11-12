@@ -126,14 +126,24 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
     ["intro", "paused", "success", "failed"].includes(state.phase);
   const input = useGameInput({ state, dispatch });
   const tutorial = state.level.difficulty === 1 && state.phase === "building";
-  const missingRoadIndex = state.level.roadNodeIds.findIndex((id, i, ids) =>
-    i < ids.length - 1 && !derived.edges.some(edge =>
-      edge.type === "road" && edge.id === getEdgeKey(id, ids[i + 1])));
+  const missingRoadIndex = state.level.roadNodeIds.findIndex(
+    (id, i, ids) =>
+      i < ids.length - 1 &&
+      !derived.edges.some(
+        (edge) =>
+          edge.type === "road" && edge.id === getEdgeKey(id, ids[i + 1]),
+      ),
+  );
   const tutorialTestReady = tutorial && missingRoadIndex === -1;
-  const tutorialNodeId = tutorial && missingRoadIndex >= 0
-    ? state.level.roadNodeIds[missingRoadIndex +
-      (state.selectedNodeId === state.level.roadNodeIds[missingRoadIndex] ? 1 : 0)]
-    : null;
+  const tutorialNodeId =
+    tutorial && missingRoadIndex >= 0
+      ? state.level.roadNodeIds[
+          missingRoadIndex +
+            (state.selectedNodeId === state.level.roadNodeIds[missingRoadIndex]
+              ? 1
+              : 0)
+        ]
+      : null;
   const hint = state.message
     ? t.messages[state.message]
     : state.phase === "testing"
@@ -151,7 +161,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
                 : t.hintFirst;
   return (
     <main className="bridge-app" lang={lang} tabIndex={-1} {...input}>
-      <div inert={overlayOpen}>
+      <div className="game-shell" inert={overlayOpen}>
         <header className="site-header">
           <a className="brand" href="./">
             <span className="brand-icon">
@@ -169,16 +179,6 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
           </button>
         </header>
         <div className="game-content">
-          <div className="page-heading">
-            <div>
-              <span className="eyebrow">{t.collection}</span>
-              <h1>{t.subtitle}</h1>
-            </div>
-            <span className="session-tag">
-              <span />
-              {t.local}
-            </span>
-          </div>
           <section className="game-card" aria-label={t.brand}>
             <div className="game-header">
               <div className="level-title">
@@ -235,6 +235,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
               countdown={simulation.countdown}
               tutorialNodeId={tutorialNodeId}
               hintId={hintId}
+              reducedMotion={reducedMotion}
             />
             <div
               className={`hint-bar ${state.message ? "warning" : ""}`}
@@ -249,32 +250,14 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
                 {t.target}: ≤ {state.level.parBudget}
               </span>
             </div>
-            <GameToolbar state={state} dispatch={dispatch} t={t} tutorialTestReady={tutorialTestReady} hintId={hintId} />
+            <GameToolbar
+              state={state}
+              dispatch={dispatch}
+              t={t}
+              tutorialTestReady={tutorialTestReady}
+              hintId={hintId}
+            />
           </section>
-          <div className="below-game">
-            <div className="legend">
-              <span>
-                <i className="anchor-dot" />
-                {t.legendAnchor}
-              </span>
-              <span>
-                <i className="joint-dot" />
-                {t.legendNode}
-              </span>
-              <span>
-                <i className="road-line" />
-                {t.legendRoad}
-              </span>
-            </div>
-            <span className="small-note">{t.singleMaterial}</span>
-          </div>
-          <footer>
-            <span>
-              <Icon name="bridge" size={17} />
-              {t.footer}
-            </span>
-            <span>{t.academy}</span>
-          </footer>
         </div>
       </div>
       {!showLevels && !exited && state.phase === "intro" && (

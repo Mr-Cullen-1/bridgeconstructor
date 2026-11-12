@@ -1,6 +1,8 @@
 # Bridge Master
 
-Junior IT Academy GameLab uchun React + SVG asosidagi lokal ko‘prik qurish o‘yini. Beshta bosqich, road/support qurilishi, material byudjeti, undo/delete/reset, deterministik ko‘prik tekshiruvi va avtomobil animatsiyasi mavjud.
+Junior IT Academy GameLab uchun React + Three.js asosidagi lokal ko‘prik qurish o‘yini. Haqiqiy 3D landshaft, ko‘prik va avtomobil; 2D boshqaruv va accessible SVG hit-targetlar. Beshta bosqich, road/support qurilishi, material byudjeti, undo/delete/reset va deterministik ko‘prik tekshiruvi mavjud.
+
+Interfeys butun viewportga moslashadi: o‘yin, boshqaruv va asosiy modallar uchun sahifa scrolli kerak emas. `3D` / `Old` tugmalari kamerani almashtiradi; sahnaning bo‘sh joyini tortish orqali ko‘rish burchagini o‘zgartirish mumkin. Mobil qurilmada ham nuqtalar ketma-ket tap bilan ulanadi.
 
 ## Ishga tushirish
 
@@ -37,7 +39,8 @@ Pause va yashirin browser tab vaqtni/animatsiyani to‘xtatadi. Sound dastlab o�
 
 - `src/games/bridge-master/engine/` — React/DOMsiz graph, build rules, narx, stability, simulation, scoring va reducer.
 - `levels/bridge-01.json` … `bridge-05.json` — koordinatalar, budget, cheklovlar va thresholdlar.
-- `components/` — SVG scene, vehicle, boshqaruv va modallar.
+- `components/` — canvas lifecycle, kameraga mos accessible SVG input, boshqaruv va modallar.
+- `scene/` — Three.js world, 3D material/geometriya, yoritish/soya, animatsiya va kamera proyeksiyasi; barcha assetlar lokal procedural geometriya.
 - `hooks/` — input, o‘yin holati, RAF lifecycle, preferences va LMS eventlari.
 - `i18n/uz.js` — interfeys matnlari; level nomlari level konfiguratsiyasida.
 - `adapters/` — xavfsiz callback adapteri va lokal mock event log.
@@ -48,6 +51,8 @@ Narx: `ceil(length * costPerUnit)` har segment uchun alohida. Narx world koordin
 Stability: `clamp(wC*C + wT*T - wU*U - wV*V, 0, 1)`; natija 6 kasrga yaxlitlanadi. C — anchor connectivity, T — tanlangan road pathni uchburchak bilan qoplash, U — tayanchsiz/uzun oraliq riski, V — bitta support yo‘qolishiga sezuvchanlik. Tutorial minimal support policy bilan ishlaydi. Keyingi levellarda ichki road node’lar support-only yo‘l orqali anchorga ulangan bo‘lishi kerak.
 
 Bu **o‘yin modeli**, haqiqiy ko‘prikning muhandislik xavfsizligini hisoblaydigan simulyator emas. Natija oldindan hisoblanadi; vizual animatsiya natijani o‘zgartirmaydi.
+
+3D sahna uchun WebGL2 kerak. WebGL konteksti yo‘qolsa interfeys qayta yuklashni so‘raydi; avtomatik context recovery hali qo‘shilmagan. Reduced motionda ambient suv/bulut animatsiyasi o‘chadi; mashinaning sinov natijasi saqlanadi. Three.js sabab production JS paketi oldingi SVG versiyadan kattaroq; o‘lchami va tekshiruv dalillari QA hujjatida.
 
 ## LMS chegarasi
 

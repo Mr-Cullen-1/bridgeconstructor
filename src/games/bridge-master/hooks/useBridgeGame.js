@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useMemo, useReducer } from "react";
 import { gameReducer, initialState } from "../engine/gameReducer.js";
 import { calculateTotalCost } from "../engine/budget.js";
 export function useBridgeGame({ level, classLevel = 5 }) {
@@ -22,11 +22,15 @@ export function useBridgeGame({ level, classLevel = 5 }) {
       document.removeEventListener("visibilitychange", visibility);
     };
   }, [state.phase]);
+  const edges = useMemo(
+    () => [...state.level.fixedEdges, ...state.playerEdges],
+    [state.level.fixedEdges, state.playerEdges],
+  );
   return {
     state,
     dispatch,
     derived: {
-      edges: [...state.level.fixedEdges, ...state.playerEdges],
+      edges,
       budgetUsed: calculateTotalCost(state.playerEdges),
     },
   };

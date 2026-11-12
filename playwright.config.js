@@ -21,7 +21,7 @@ export default defineConfig({
   projects: [
     {
       name: "desktop-chrome",
-      testMatch: "gameplay.spec.js",
+      testMatch: ["gameplay.spec.js", "viewport.spec.js"],
       use: {
         browserName: "chromium",
         channel: "chrome",

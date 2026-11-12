@@ -6,11 +6,11 @@ Lokal standalone versiya. Real LMS, production deploy yoki real o‘quvchi playt
 
 | Tekshiruv | Natija | Dalil |
 | --- | --- | --- |
-| Unit/component/hook | 65/65 o‘tdi | `npm.cmd run test -- --run` |
+| Unit/component/hook | 69/69 o‘tdi | `npm.cmd run test -- --run`; 3D camera bounds va graph reference lifecycle ham qamrab olingan |
 | Lint | O‘tdi, xato yoki warning yo‘q | `npm.cmd run lint` |
-| Production build | O‘tdi | `npm.cmd run build`; JS 263.17 kB, gzip 82.39 kB |
+| Production build | O‘tdi; katta chunk ogohlantirishi bor | `npm.cmd run build`; JS 830.65 kB, gzip 226.53 kB; CSS 13.90 kB / gzip 4.06 kB |
 | Dependency audit | 0 zaiflik | `npm.cmd audit --json` |
-| Yakuniy E2E | 8/8 o‘tdi, 1.6 daqiqa | `npm.cmd run test:e2e`; barcha level uchun portrait/landscape touch qo‘shilgan run |
+| Yakuniy E2E | 16/16 o‘tdi, 2.0 daqiqa | `npm.cmd run test:e2e`; 3D, 6 viewport, kamera va normal-motion lifecycle bilan |
 | Chrome, 1366×768 | 5 level success, replay, level select | `gameplay.spec.js` |
 | Chrome fail→repair | Valid kuchsiz graph fail, Retry qurilishni saqlaydi, support qo‘shilgach success | `gameplay.spec.js` |
 | Klaviatura va tahrirlash | Node Enter, edge delete, Ctrl+Z, reset, budget rejection, sound toggle | `gameplay.spec.js` |
@@ -34,10 +34,18 @@ Lokal standalone versiya. Real LMS, production deploy yoki real o‘quvchi playt
 - [Level 5 portrait](../../output/playwright/mobile-360-level-5.png)
 - [Level 5 landscape](../../output/playwright/mobile-800-level-5.png)
 - [Playwright HTML report](../../playwright-report/index.html)
+- [3D desktop, 1920×1080](../../output/playwright/3d-1920x1080.png)
+- [3D mobile, 360×800](../../output/playwright/3d-360x800.png)
+- [3D kichik telefon, 320×568](../../output/playwright/3d-320x568.png)
+- [3D landscape, 800×360](../../output/playwright/3d-800x360.png)
 
-Desktop va mobile screenshotlari ochilib ko‘rildi. Desktopda o‘yin kartasining pastki qismiga sahifa scrolli kerak bo‘lishi mumkin; mobile toolbar va matnlar kenglikdan tashqariga chiqmaydi. SVG hit-area haqiqiy render scale asosida hisoblanadi.
+3D versiya foydalanuvchining 2026-11-12 dagi screenshot va scrollsiz viewport talabiga muvofiq eski sahifa layoutini almashtirdi. Desktop, portrait va landscape screenshotlari ochilib ko‘rildi. Node hit-area 44 CSS px, koordinatalar Three.js kamerasi orqali proyeksiya qilinadi.
 
-Keyingi QA bosqichida Level 5 portrait va landscape screenshotlari ham ochilib tekshirildi. Landscape ekran balandligi 360px bo‘lganda toolbar uchun vertikal scroll kerak; touch test bu oqimni bajaradi. Bu bosqichda product kodi o‘zgarmadi: unit/build natijalari oldingi tekshirilgan product commitiga tegishli, E2E va lint esa qayta bajarildi.
+Yangi viewport tekshiruvlari 1366×768, 1920×1080, 360×800, 390×844, 320×568 va 800×360 o‘lchamlarda documentning ikki o‘qda scroll qilmasligi, toolbar hamda intro/result/level-select tugmalarining ekranga sig‘ishini tekshiradi. Avvalgi landscape scroll cheklovi shu versiyada olib tashlangan.
+
+Sahna haqiqiy WebGL: procedural landshaft, daraxtlar, suv, yo‘l/tayanchlar va avtomobil meshlaridan iborat. 2D qatlam — boshqaruv va accessible hit-targetlar. `3D`/`Old` kamera almashinuvi va bo‘sh sahnada drag mavjud. Normal-motion testida canvas kadrlari o‘zgarishi, visibility eventida butun o‘yin pauzaga tushishi, 7.5 sekund davomida kadr o‘zgarmasligi va faqat Resume orqali successga yetishi tekshiriladi. Visibility eventi testda boshqariladi; haqiqiy telefon OS background lifecycle sinovi sifatida talqin qilinmasin.
+
+Three.js qo‘shilishi production JS paketini oshirdi; Vite 500 kB chunk chegarasi haqida ogohlantiradi. Bu build xatosi emas, ammo sekin qurilma/tarmoqdagi performance o‘lchovi hali yo‘q. Renderer DPRni 1.75 bilan cheklaydi; natijani “60 FPS tasdiqlandi” deb talqin qilish mumkin emas.
 
 Haqiqiy telefon va yangi o‘quvchi tekshiruvi uchun [sinov yo‘riqnomasi va bo‘sh qayd jadvali](playtest-guide.md) tayyor. Natija kiritilmaguncha tashqi sinovlar `tekshirilmagan` bo‘lib qoladi.
 
@@ -62,5 +70,6 @@ Haqiqiy telefon va yangi o‘quvchi tekshiruvi uchun [sinov yo‘riqnomasi va bo
 - Real LMS payload, auth, analytics transporti, server idempotency, persistence va reward.
 - Formal screen-reader/WCAG audit o‘tkazilmadi; keyboard, focus, rangdan tashqari feedback va reduced-motion asoslari tekshirildi.
 - ESLint 9.39.5 deprecated; dependency daraxti hozir auditdan toza, lekin xavfsiz supported versiya bilan yangilash kerak.
+- WebGL2 talab qilinadi. Context loss holatida tushunarli reload xabari chiqadi; avtomatik context restore deferred. GPU resurslari va RAF unmountda tozalanadi; React StrictMode uchun canvas contextni majburan yo‘qotish qo‘llanmaydi.
 
 Spec §16 va §21 uchun avtomatlashtirilgan qamrov yuqoridagi jadvalda. Yuqoridagi tashqi tekshiruvlar tugamaguncha production/LMS va barcha qurilmalardagi yakuniy DoD to‘liq tasdiqlangan deb hisoblanmaydi.

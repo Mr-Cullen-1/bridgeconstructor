@@ -36,3 +36,16 @@
 - Real Android/iPhone va yangi o‘quvchi uchun `docs/qa/playtest-guide.md` tayyorlandi: ulanish, takrorlash qadamlari, vaqt o‘lchash mezonlari, bo‘sh qayd jadvali. Real sinov natijasi uydirilmagan.
 - Product kodi yoki LMS doirasi o‘zgartirilmagan. Ushbu bosqichda avtomatik deploy yoki LAN server ochilmagan.
 - Yakuniy tekshiruv: Chrome/Edge E2E 8/8 (1.6 daqiqa), lint xatosiz, `git diff --check` xatosiz. Level 5 portrait/landscape screenshotlari ko‘rib chiqildi. Unit/build qayta bajarilmadi: product kodi va dependencylar o‘zgarmagan.
+
+## Viewport + 3D, user request 2026-11-12
+- Ruling: user explicitly allowed full 3D or 80% 3D/20% 2D and requested implementation before their visual review. Chosen: real Three.js world with 2D HUD/projected accessible inputs; existing deterministic rules stay unchanged. Tradeoff: not free-form 3D engineering physics or exact pixel-ratio enforcement.
+- Ruling: new no-scroll and 3D request supersedes original SVG-only/page-scroll spec. Removed page headline/footer and old SVG vehicle; viewport grid keeps controls on-screen. Tradeoff: compact UI replaces the earlier presentation-page composition.
+- RED: 1366×768 browser test caught document height overflow. Camera test caught top node clipping in short landscape; framing corrected.
+- Three.js 0.187.0 added; install audit reported zero vulnerabilities. Local procedural geometry, no model/texture network requests. Renderer uses current PCFShadowMap.
+- StrictMode browser failure: forcing context loss during cleanup invalidated the reused canvas. Removed forced loss; renderer/geometry/material/shadow resources are disposed normally. Real WebGL and replay/level-switch tests pass.
+- Performance RED→GREEN: useBridgeGame recreated graph on clock/animation renders, rebuilding all bridge meshes. Memoized by level fixed edges/player edges; hook test confirms identity remains stable on TICK/rerender and changes after construction.
+- Independent final reviewer completed one read-only review. No Critical findings. Reported hidden-tab simulation gap was investigated against the full app, rather than the standalone hook.
+- Final Ruling: hidden-tab finding rejected — useBridgeGame dispatches PAUSE on visibilitychange, which cancels both simulation and world RAF. Browser test confirms paused state, frozen canvas for 7.5 seconds, no automatic success, and successful explicit Resume. Cost if wrong: unusual real-device event ordering is still unverified and remains in device QA.
+- Final: minor (deferred): automatic WebGL context recovery; current UI requests reload after context loss.
+- Normal-motion coverage concern closed by the same visibility investigation test: live canvas changes, paused canvas does not. Initial screenshot comparison included the modal entrance transition; assertion now waits for that transition to finish before comparing frozen frames.
+- Unit/component/hook 69/69, lint passed, production build passed with large-chunk warning (JS 830.65 kB / gzip 226.53 kB). Final browser suite and screenshots recorded in QA.

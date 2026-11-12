@@ -11,7 +11,7 @@ export default function ResultModal({
 }) {
   const success = result.status === "completed";
   return (
-    <Modal title={success ? t.success : t.failed}>
+    <Modal title={success ? t.success : t.failed} className="result-modal">
       <div className="stars" aria-label={t.stars(result.stars)}>
         {[1, 2, 3].map((n) => (
           <Icon
