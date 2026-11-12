@@ -50,11 +50,27 @@ it("keeps fixed edges when resetting", () => {
   );
   expect(s.level.fixedEdges).toEqual([fixed]);
 });
-it("blocks invalid test without incrementing attempts", () => {
-  const s = act(ready(), "START_TEST");
+it("tests an empty bridge, records a failed attempt and permits repair", () => {
+  let s = act(ready(), "START_TEST");
+  expect(s.phase).toBe("testing");
+  expect(s.attempts).toBe(1);
+  expect(s.message).toBeNull();
+  s = act(s, "FINISH_TEST", {
+    runId: s.runId,
+    completedAt: "2026-11-12T00:00:00Z",
+  });
+  expect(s.phase).toBe("failed");
+  expect(s.result.stars).toBe(0);
+  s = act(s, "RETRY");
+  expect(s.phase).toBe("building");
+  expect(s.attempts).toBe(1);
+  expect(connect(s, "a", "b").playerEdges).toHaveLength(1);
+});
+it("still rejects corrupt graph data before simulation", () => {
+  const s = act({ ...ready(), playerEdges: [null] }, "START_TEST");
   expect(s.phase).toBe("building");
   expect(s.attempts).toBe(0);
-  expect(s.message).toBe("roadGap");
+  expect(s.message).toBe("invalidGraph");
 });
 it("locks build actions during testing and success and rejects stale completions", () => {
   const s = act(built(), "START_TEST");

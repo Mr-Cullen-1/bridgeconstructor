@@ -9,7 +9,8 @@ export const uz = {
   frontView: "Old ko‘rinish",
   frontShort: "Old",
   orbitHint: "Kamerani burish uchun bo‘sh joyni torting",
-  webglError: "3D sahnani ochib bo‘lmadi. Brauzerda apparat tezlashtirishni yoqing va sahifani yangilang.",
+  webglError:
+    "3D sahnani ochib bo‘lmadi. Brauzerda apparat tezlashtirishni yoqing va sahifani yangilang.",
   subtitle: "Har bir buyuk ko‘prik birinchi kesmadan boshlanadi.",
   level: "Bosqich",
   levels: "Bosqichlar",
@@ -47,6 +48,12 @@ export const uz = {
   failed: "Yana bir yechim bor!",
   failedBody:
     "Belgilangan joy zaif. Uchburchak tayanch qo‘shib, yana sinab ko‘ring.",
+  failureReasons: {
+    roadGap:
+      "Yo‘l uzilgan joyda avtomobil o‘ta olmadi. Yo‘lni davom ettirib, yana sinab ko‘ring.",
+    noSupport:
+      "Tayanch yetishmadi — ko‘prik yukni ko‘tara olmadi. Tayanchlar qo‘shib, yana sinab ko‘ring.",
+  },
   score: "Ball",
   stability: "Mustahkamlik",
   attempts: "Urinish",

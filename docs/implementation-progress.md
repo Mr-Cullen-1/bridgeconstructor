@@ -49,3 +49,12 @@
 - Final: minor (deferred): automatic WebGL context recovery; current UI requests reload after context loss.
 - Normal-motion coverage concern closed by the same visibility investigation test: live canvas changes, paused canvas does not. Initial screenshot comparison included the modal entrance transition; assertion now waits for that transition to finish before comparing frozen frames.
 - Unit/component/hook 69/69, lint passed, production build passed with large-chunk warning (JS 830.65 kB / gzip 226.53 kB). Final browser suite and screenshots recorded in QA.
+
+## Any construction can be tested — user correction, 2026-11-12
+- User corrected the original rule that blocked roadGap/noSupport before START_TEST. Those are now simulated failed attempts; only invalid configuration/corrupt serialized graph is blocked.
+- RED: four assertions failed for empty simulation, partial path, missing bracing and attempt progression. GREEN: 72/72 unit/component/hook tests.
+- Gap simulation follows the reachable road path closest to the finish and falls at its end; disconnected segments are not crossed. Empty bridge uses the parked vehicle approach to the starting cliff. Partial path is deterministic under edge reorder/reversal.
+- Failed result text distinguishes road gap from missing support. Retry preserves construction and attempts. LMS completion remains success-only; attempt definition clarified.
+- Initial E2E fixture selected the inert header behind a success modal; corrected the fixture to use the visible Next button. No game behavior was changed to bypass modal protection.
+- Normal-motion gap/fall screenshot and full browser regression suite are recorded in QA. Build passed, retaining the known Three.js chunk-size warning.
+- Final verification: 72/72 unit/component/hook, 18/18 browser E2E (2.2 minutes), lint and build passed. Local server returned HTTP 200.

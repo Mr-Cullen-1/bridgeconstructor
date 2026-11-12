@@ -315,6 +315,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
         ["success", "failed"].includes(state.phase) && (
           <ResultModal
             result={state.result}
+            reasonCode={state.run?.outcome.reasonCode}
             t={t}
             onRetry={() => dispatch({ type: "RETRY" })}
             onReplay={() => loadLevel(state.level)}

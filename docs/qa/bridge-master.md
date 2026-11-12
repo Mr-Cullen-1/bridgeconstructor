@@ -6,11 +6,11 @@ Lokal standalone versiya. Real LMS, production deploy yoki real o‘quvchi playt
 
 | Tekshiruv | Natija | Dalil |
 | --- | --- | --- |
-| Unit/component/hook | 69/69 o‘tdi | `npm.cmd run test -- --run`; 3D camera bounds va graph reference lifecycle ham qamrab olingan |
+| Unit/component/hook | 72/72 o‘tdi | `npm.cmd run test -- --run`; chala/bo‘sh ko‘prik sinovi, qisman yo‘l va attempts ham qamrab olingan |
 | Lint | O‘tdi, xato yoki warning yo‘q | `npm.cmd run lint` |
-| Production build | O‘tdi; katta chunk ogohlantirishi bor | `npm.cmd run build`; JS 830.65 kB, gzip 226.53 kB; CSS 13.90 kB / gzip 4.06 kB |
+| Production build | O‘tdi; katta chunk ogohlantirishi bor | `npm.cmd run build`; JS 831.40 kB, gzip 226.78 kB; CSS 13.90 kB / gzip 4.06 kB |
 | Dependency audit | 0 zaiflik | `npm.cmd audit --json` |
-| Yakuniy E2E | 16/16 o‘tdi, 2.0 daqiqa | `npm.cmd run test:e2e`; 3D, 6 viewport, kamera va normal-motion lifecycle bilan |
+| Yakuniy E2E | 18/18 o‘tdi, 2.2 daqiqa | `npm.cmd run test:e2e`; bo‘sh/chala/tayanchsiz sinov, qulash, 3D, 6 viewport va normal-motion lifecycle bilan |
 | Chrome, 1366×768 | 5 level success, replay, level select | `gameplay.spec.js` |
 | Chrome fail→repair | Valid kuchsiz graph fail, Retry qurilishni saqlaydi, support qo‘shilgach success | `gameplay.spec.js` |
 | Klaviatura va tahrirlash | Node Enter, edge delete, Ctrl+Z, reset, budget rejection, sound toggle | `gameplay.spec.js` |
@@ -38,6 +38,7 @@ Lokal standalone versiya. Real LMS, production deploy yoki real o‘quvchi playt
 - [3D mobile, 360×800](../../output/playwright/3d-360x800.png)
 - [3D kichik telefon, 320×568](../../output/playwright/3d-320x568.png)
 - [3D landscape, 800×360](../../output/playwright/3d-800x360.png)
+- [Chala ko‘prik oxirida avtomobilning yiqilishi](../../output/playwright/partial-bridge-fall.png)
 
 3D versiya foydalanuvchining 2026-11-12 dagi screenshot va scrollsiz viewport talabiga muvofiq eski sahifa layoutini almashtirdi. Desktop, portrait va landscape screenshotlari ochilib ko‘rildi. Node hit-area 44 CSS px, koordinatalar Three.js kamerasi orqali proyeksiya qilinadi.
 
@@ -61,6 +62,7 @@ Haqiqiy telefon va yangi o‘quvchi tekshiruvi uchun [sinov yo‘riqnomasi va bo
 8. Fixed segment endpoint yo‘nalishi/property tartibi rad etilardi, null/undefined segmentlar exception berardi — semantik tekshiruv va malformed entry himoyasi qo‘shildi. Oltita regression case, fixdan avval to‘rttasi qizil, so‘ng barchasi yashil.
 9. Tutorialning keyingi nuqtasi va tayyor Test tugmasi vizual ajratilmagan edi — halqa/strelka va tugma outline, shuningdek hint bilan accessible bog‘lanish qo‘shildi. Component regression RED→GREEN.
 10. Level 2, 3 va 5 matnlaridagi `?` encoding artefaktlari to‘g‘ri o‘zbekcha apostrofga almashtirildi.
+11. Foydalanuvchi tuzatishi: roadGap/noSupport sinovni boshlashdan oldin rad etilardi. Endi bo‘sh, chala va tayanchsiz ko‘priklar ham sinovga kiradi; failed attempt yoziladi, Retry qurilishni saqlaydi. Qisman yo‘lda mashina faqat startdan yetib borish mumkin bo‘lgan segmentlarda yuradi va uzilishda yiqiladi. Natija oynasi sababni ajratadi. To‘rtta RED assertion → GREEN; normal-motion qulash screenshoti ochilib ko‘rildi.
 
 ## Hali tekshirilmagan / tashqi bog‘liqliklar
 

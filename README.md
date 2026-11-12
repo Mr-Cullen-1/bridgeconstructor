@@ -29,7 +29,7 @@ E2E konfiguratsiyasi o‘rnatilgan **Google Chrome** va **Microsoft Edge** bilan
 1. `Qurishni boshlash` tugmasini bosing.
 2. `Yo‘l` rejimida bir nuqtani, so‘ng ikkinchisini bosing.
 3. Keyingi bosqichlarda `Tayanch` rejimida yuqoridagi nuqtalar orqali mustahkam konstruksiya yarating.
-4. `Ko‘prikni sinash`ni bosing; natijadan keyin qayta urinishingiz mumkin.
+4. Istalgan paytda `Ko‘prikni sinash`ni bosing — bo‘sh, chala yoki tayanchsiz ko‘prik ham sinaladi. Yo‘l uzilgan bo‘lsa mashina mavjud yo‘l oxirida yiqiladi; natijadan keyin qurilishni saqlagan holda tuzatib, qayta urinishingiz mumkin.
 
 Klaviatura: **Tab** fokus, **Enter/Space** tanlash, **Esc** tanlovni bekor qilish, **Delete/Backspace** tanlangan kesmani o‘chirish, **Ctrl/Cmd+Z** undo. Touch ham ikki marta ketma-ket nuqta tanlash orqali ishlaydi; drag shart emas.
 

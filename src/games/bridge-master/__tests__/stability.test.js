@@ -6,28 +6,55 @@ import { createTestRun, getSimulationOutcome } from "../engine/simulation.js";
 import { calculateStars, calculateScore } from "../engine/scoring.js";
 
 it("rejects a duplicate fixed edge substituted for a required fixed segment", () => {
-  const built = make(tutorial, [["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"]]);
-  const fixed = built.slice(0, 2).map(e => ({ ...e, isPlayerBuilt: false }));
+  const built = make(tutorial, [
+    ["a", "b"],
+    ["b", "c"],
+    ["c", "d"],
+    ["d", "e"],
+  ]);
+  const fixed = built.slice(0, 2).map((e) => ({ ...e, isPlayerBuilt: false }));
   const level = { ...tutorial, fixedEdges: fixed };
   const supplied = [fixed[0], { ...fixed[0] }, ...built.slice(2)];
-  expect(getSimulationOutcome(level, supplied)).toMatchObject({valid: false, reasonCode: "invalidGraph"});
+  expect(getSimulationOutcome(level, supplied)).toMatchObject({
+    valid: false,
+    reasonCode: "invalidGraph",
+  });
   expect(createTestRun(level, supplied).outcome.valid).toBe(false);
 });
 
 it("accepts semantically identical fixed edges with reversed endpoints and property order", () => {
-  const built = make(tutorial, [["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"]]);
-  const fixed = built.slice(0, 2).map(e => ({ ...e, isPlayerBuilt: false }));
+  const built = make(tutorial, [
+    ["a", "b"],
+    ["b", "c"],
+    ["c", "d"],
+    ["d", "e"],
+  ]);
+  const fixed = built.slice(0, 2).map((e) => ({ ...e, isPlayerBuilt: false }));
   const level = { ...tutorial, fixedEdges: fixed };
-  const reversed = fixed.map(e => ({ type: e.type, cost: e.cost, length: e.length, isPlayerBuilt: false, toNodeId: e.fromNodeId, fromNodeId: e.toNodeId, id: e.id }));
+  const reversed = fixed.map((e) => ({
+    type: e.type,
+    cost: e.cost,
+    length: e.length,
+    isPlayerBuilt: false,
+    toNodeId: e.fromNodeId,
+    fromNodeId: e.toNodeId,
+    id: e.id,
+  }));
   const run = createTestRun(level, [...reversed, ...built.slice(2)]);
-  expect(run.outcome).toMatchObject({valid: true, status: "completed"});
-  expect(run.path.map(n => n.id)).toEqual(["a", "b", "c", "d", "e"]);
+  expect(run.outcome).toMatchObject({ valid: true, status: "completed" });
+  expect(run.path.map((n) => n.id)).toEqual(["a", "b", "c", "d", "e"]);
   expect(run.durationMs).toBe(4000);
 });
 
-it.each([[null], [undefined], [1], [{}]])("rejects malformed serialized edges without throwing: %j", candidate => {
-  expect(getSimulationOutcome(tutorial, [candidate])).toMatchObject({valid: false, reasonCode: "invalidGraph"});
-});
+it.each([[null], [undefined], [1], [{}]])(
+  "rejects malformed serialized edges without throwing: %j",
+  (candidate) => {
+    expect(getSimulationOutcome(tutorial, [candidate])).toMatchObject({
+      valid: false,
+      reasonCode: "invalidGraph",
+    });
+  },
+);
 
 export const braced = {
   ...tutorial,
@@ -71,15 +98,45 @@ const strong = make(braced, [
   ["b", "f", "support"],
   ["e", "f", "support"],
 ]);
-it("blocks discontinuous road and missing bracing before testing", () => {
+it("simulates discontinuous road and missing bracing as failed attempts", () => {
   expect(getSimulationOutcome(braced, [])).toMatchObject({
-    valid: false,
+    valid: true,
+    status: "failed",
     reasonCode: "roadGap",
   });
   expect(getSimulationOutcome(braced, make(braced, roads))).toMatchObject({
-    valid: false,
+    valid: true,
+    status: "failed",
     reasonCode: "noSupport",
   });
+});
+it("drives to the end of a reachable partial road and falls at the gap", () => {
+  const partial = make(tutorial, [
+    ["a", "b"],
+    ["b", "c"],
+    ["d", "e"],
+  ]);
+  const run = createTestRun(tutorial, partial);
+  expect(run.outcome).toMatchObject({
+    valid: true,
+    status: "failed",
+    reasonCode: "roadGap",
+    weakEdgeId: null,
+  });
+  expect(run.path.map((n) => n.id)).toEqual(["a", "b", "c"]);
+  expect(run.durationMs).toBe(2000);
+  expect(run.failureAtMs).toBe(2000);
+  const reversed = [...partial]
+    .reverse()
+    .map((e) => ({ ...e, fromNodeId: e.toNodeId, toNodeId: e.fromNodeId }));
+  expect(createTestRun(tutorial, reversed)).toEqual(run);
+});
+it("gives an empty bridge a finite approach to the starting cliff", () => {
+  const run = createTestRun(tutorial, []);
+  expect(run.outcome.valid).toBe(true);
+  expect(run.path.map((n) => n.x)).toEqual([72, 120]);
+  expect(run.durationMs).toBeGreaterThan(0);
+  expect(run.failureAtMs).toBe(run.durationMs);
 });
 it("gives weak and strong valid bridges different deterministic outcomes", () => {
   expect(getSimulationOutcome(braced, weak)).toMatchObject({

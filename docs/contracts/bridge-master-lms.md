@@ -32,7 +32,7 @@ Bu loyiha taklifi va lokal testlangan adapter contracti. Haqiqiy LMS backend con
 | materialUsed | player-built material sarfi |
 | stabilityScore | 0–1 |
 | durationSeconds | faol vaqt, pause/hidden vaqtisiz, yaxlitlangan sekund |
-| attempts | valid testlar soni |
+| attempts | boshlangan sinovlar soni; bo‘sh, chala va tayanchsiz qurilish sinovlari ham kiradi |
 | completedAt | ISO timestamp |
 
 Fail natijasi UI ichida mavjud (`stars:0`), ammo `onFinished` orqali yuborilmaydi. `bridge_test_failed` eventidan foydalaniladi.

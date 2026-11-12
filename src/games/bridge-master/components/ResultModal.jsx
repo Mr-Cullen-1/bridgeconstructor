@@ -8,6 +8,7 @@ export default function ResultModal({
   onNext,
   onSelect,
   isLast,
+  reasonCode,
 }) {
   const success = result.status === "completed";
   return (
@@ -22,7 +23,11 @@ export default function ResultModal({
           />
         ))}
       </div>
-      <p>{success ? t.successBody : t.failedBody}</p>
+      <p>
+        {success
+          ? t.successBody
+          : (t.failureReasons?.[reasonCode] ?? t.failedBody)}
+      </p>
       <div className="result-stats">
         <div>
           <strong>{result.score}</strong>

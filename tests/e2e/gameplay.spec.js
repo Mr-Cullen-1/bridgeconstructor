@@ -1,6 +1,56 @@
 import { test, expect } from "@playwright/test";
 import { solutions } from "../../src/games/bridge-master/__tests__/fixtures/solutions.js";
 import { connect, start, win, choose } from "./helpers.js";
+test("empty, incomplete and unsupported bridges can be tested and repaired", async ({
+  page,
+}) => {
+  await start(page);
+  for (const pairs of [[], [["a", "b"]]]) {
+    await connect(page, pairs);
+    await page.getByRole("button", { name: "Ko‘prikni sinash" }).click();
+    await expect(
+      page.getByRole("dialog", { name: "Yana bir yechim bor!" }),
+    ).toBeVisible();
+    await expect(page.getByRole("dialog")).toContainText("Yo‘l uzilgan");
+    await page.getByRole("button", { name: "Ko‘prikni yaxshilash" }).click();
+  }
+  await expect(page.getByLabel("Material sarfi")).toContainText("14 / 80");
+  await connect(page, solutions[0].slice(1));
+  await win(page);
+  await page.getByRole("button", { name: "Keyingi bosqich" }).click();
+  await page.getByRole("button", { name: "Qurishni boshlash" }).click();
+  await connect(
+    page,
+    solutions[1].filter(([, , type]) => type !== "support"),
+  );
+  await page.getByRole("button", { name: "Ko‘prikni sinash" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Yana bir yechim bor!" }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toContainText("Tayanch yetishmadi");
+  await page.getByRole("button", { name: "Ko‘prikni yaxshilash" }).click();
+  await connect(
+    page,
+    solutions[1].filter(([, , type]) => type === "support"),
+  );
+  await win(page);
+});
+test("normal-motion partial bridge drives to the gap and falls", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await start(page);
+  await connect(page, [["a", "b"]]);
+  await page.getByRole("button", { name: "Ko‘prikni sinash" }).click();
+  await expect(page.locator(".countdown")).toBeVisible();
+  await expect(page.locator(".countdown")).toBeHidden();
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: "output/playwright/partial-bridge-fall.png" });
+  await expect(
+    page.getByRole("dialog", { name: "Yana bir yechim bor!" }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toContainText("Yo‘l uzilgan");
+});
 test("all five levels can be completed, replayed and selected", async ({
   page,
 }) => {
