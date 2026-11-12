@@ -5,7 +5,9 @@ import BridgeMaster from "../BridgeMaster.jsx";
 it("lets a new player build, undo and test a bridge using accessible controls", () => {
   render(<BridgeMaster />);
   fireEvent.click(screen.getByRole("button", { name: "Qurishni boshlash" }));
+  expect(screen.getByRole("button", { name: "Nuqta A" })).toHaveAttribute("aria-describedby", screen.getByRole("status").id);
   fireEvent.click(screen.getByRole("button", { name: "Nuqta A" }));
+  expect(screen.getByRole("button", { name: "Nuqta B" })).toHaveAttribute("aria-describedby", screen.getByRole("status").id);
   fireEvent.click(screen.getByRole("button", { name: "Nuqta B" }));
   expect(screen.getByLabelText("Material sarfi")).toHaveTextContent("14 / 80");
   fireEvent.click(screen.getByRole("button", { name: "Ortga qaytarish" }));
@@ -19,6 +21,7 @@ it("lets a new player build, undo and test a bridge using accessible controls", 
     fireEvent.click(screen.getByRole("button", { name: `Nuqta ${a}` }));
     fireEvent.click(screen.getByRole("button", { name: `Nuqta ${b}` }));
   }
+  expect(screen.getByRole("button", { name: "Ko‘prikni sinash" })).toHaveAttribute("aria-describedby", screen.getByRole("status").id);
   fireEvent.click(screen.getByRole("button", { name: "Ko‘prikni sinash" }));
   expect(
     screen.getByRole("button", { name: "Ortga qaytarish" }),

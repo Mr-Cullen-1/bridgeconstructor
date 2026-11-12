@@ -1,5 +1,5 @@
 import Icon from "./Icon.jsx";
-export default function GameToolbar({ state, dispatch, t }) {
+export default function GameToolbar({ state, dispatch, t, tutorialTestReady, hintId }) {
   const locked = state.phase !== "building";
   return (
     <div className="toolbar">
@@ -36,7 +36,8 @@ export default function GameToolbar({ state, dispatch, t }) {
         ))}
       </div>
       <button
-        className="primary test-button"
+        className={`primary test-button ${tutorialTestReady ? "tutorial-ready" : ""}`}
+        aria-describedby={tutorialTestReady ? hintId : undefined}
         disabled={locked}
         onClick={() => dispatch({ type: "START_TEST" })}
       >

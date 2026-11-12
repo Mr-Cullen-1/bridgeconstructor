@@ -826,3 +826,7 @@ footer > span:last-child {
     transform: none;
   }
 }
+.test-button.tutorial-ready {
+  outline: 3px solid #ca8b21;
+  outline-offset: 4px;
+}

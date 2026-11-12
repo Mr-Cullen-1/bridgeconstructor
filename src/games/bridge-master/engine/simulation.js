@@ -1,6 +1,6 @@
 import { validateLevel } from "./levelValidation.js";
 import { canConnectNodes, createEdge } from "./buildRules.js";
-import { findPath, getNodeById } from "./graph.js";
+import { findPath, getNodeById, getEdgeKey } from "./graph.js";
 import {
   calculateStability,
   validateRoadContinuity,
@@ -8,26 +8,32 @@ import {
 } from "./stability.js";
 import { calculateEdgeLength } from "./budget.js";
 
-export function getSimulationOutcome(level, edges) {
-  const invalid = (reasonCode) => ({
+const invalid = (reasonCode) => ({
     valid: false,
     status: "failed",
     reasonCode,
     stabilityScore: 0,
     weakEdgeId: null,
   });
-  if (!validateLevel(level).valid) return invalid("invalidConfig");
-  if (!Array.isArray(edges)) return invalid("invalidGraph");
+function normalizeGraph(level, edges) {
+  if (!validateLevel(level).valid) return { reasonCode: "invalidConfig" };
+  if (!Array.isArray(edges)) return { reasonCode: "invalidGraph" };
+  for (const edge of edges) {
+    if (!edge || typeof edge !== "object" || typeof edge.isPlayerBuilt !== "boolean")
+      return { reasonCode: "invalidGraph" };
+  }
   const normalized = [...level.fixedEdges];
   const suppliedFixed = edges.filter((e) => !e.isPlayerBuilt);
-  if (
-    suppliedFixed.length !== level.fixedEdges.length ||
-    suppliedFixed.some(
-      (e) =>
-        !level.fixedEdges.some((f) => JSON.stringify(f) === JSON.stringify(e)),
-    )
-  )
-    return invalid("invalidGraph");
+  const remainingFixed = new Map(level.fixedEdges.map(e => [e.id, e]));
+  for (const e of suppliedFixed) {
+    const expected = remainingFixed.get(e.id);
+    if (!expected || e.type !== expected.type || e.cost !== expected.cost ||
+        e.length !== expected.length ||
+        getEdgeKey(e.fromNodeId, e.toNodeId) !== expected.id)
+      return { reasonCode: "invalidGraph" };
+    remainingFixed.delete(e.id);
+  }
+  if (remainingFixed.size) return { reasonCode: "invalidGraph" };
   for (const e of edges.filter((e) => e.isPlayerBuilt)) {
     const valid = canConnectNodes(
       level,
@@ -36,7 +42,7 @@ export function getSimulationOutcome(level, edges) {
       e.toNodeId,
       e.type,
     );
-    if (!valid.ok) return invalid(valid.reasonCode);
+    if (!valid.ok) return { reasonCode: valid.reasonCode };
     const rebuilt = createEdge(
       level,
       getNodeById(level.nodes, e.fromNodeId),
@@ -48,9 +54,14 @@ export function getSimulationOutcome(level, edges) {
       e.cost !== rebuilt.cost ||
       e.length !== rebuilt.length
     )
-      return invalid("invalidGraph");
+      return { reasonCode: "invalidGraph" };
     normalized.push(rebuilt);
   }
+  return { edges: normalized };
+}
+function evaluateGraph(level, graph) {
+  if (graph.reasonCode) return invalid(graph.reasonCode);
+  const normalized = graph.edges;
   const road = validateRoadContinuity(level, normalized);
   if (!road.valid) return invalid(road.reasonCode);
   const anchor = validateAnchorConnectivity(level, normalized);
@@ -65,6 +76,9 @@ export function getSimulationOutcome(level, edges) {
     weakEdgeId: stability.weakEdgeId,
   };
 }
+export function getSimulationOutcome(level, edges) {
+  return evaluateGraph(level, normalizeGraph(level, edges));
+}
 export const getVehiclePath = (level, edges) =>
   (
     findPath(
@@ -75,16 +89,17 @@ export const getVehiclePath = (level, edges) =>
     ) ?? []
   ).map((id) => getNodeById(level.nodes, id));
 export function createTestRun(level, edges) {
-  const outcome = getSimulationOutcome(level, edges);
+  const graph = normalizeGraph(level, edges);
+  const outcome = evaluateGraph(level, graph);
   if (!outcome.valid)
     return { outcome, path: [], durationMs: 0, failureAtMs: 0 };
-  const path = getVehiclePath(level, edges);
+  const path = getVehiclePath(level, graph.edges);
   const distances = path.map((n, i) =>
     i === 0 ? 0 : calculateEdgeLength(path[i - 1], n),
   );
   const durationMs =
     (distances.reduce((a, b) => a + b, 0) / level.vehicle.speed) * 1000;
-  const weak = edges.find((e) => e.id === outcome.weakEdgeId);
+  const weak = graph.edges.find((e) => e.id === outcome.weakEdgeId);
   let failureAtMs = durationMs * 0.5;
   if (weak) {
     const a = getNodeById(level.nodes, weak.fromNodeId),

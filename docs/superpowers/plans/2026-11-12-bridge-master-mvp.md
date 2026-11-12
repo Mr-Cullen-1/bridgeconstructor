@@ -1,6 +1,8 @@
 # Bridge Master MVP Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Ushbu hujjat reja; dastur yaratish hali boshlanmagan.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Quyidagi dastlabki reja tarixiy holatni saqlaydi; amaldagi bajarilish holati quyida va ish qaydlarida berilgan.
+
+**Bajarilish holati, 2026-11-12:** Task 1–7 lokal MVP doirasida implementatsiya qilindi: 5 level, React/SVG interfeys, deterministik engine va mock LMS adapter. Task 8 bo‘yicha unit/component/hook 65/65, lint va build o‘tdi; browser tekshiruvining yakuniy natijasi [QA hujjatida](../../qa/bridge-master.md). Haqiqiy mobil qurilma, yangi o‘quvchi playtesti va real LMS integratsiyasi ochiq. Batafsil qarorlar: [ish qaydlari](../../implementation-progress.md). Dastlabki checkboxlar to‘liq production acceptance sifatida belgilanmagan.
 
 **Goal:** React + SVG asosida, 5 ta yechiladigan levelga ega, desktop va mobile qurilmalarda ishlaydigan standalone Bridge Master MVP yaratish.
 

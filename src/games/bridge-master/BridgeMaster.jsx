@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import { getEdgeKey } from "./engine/graph.js";
 import { levels as defaultLevels } from "./levels/index.js";
 import { validateLevel } from "./engine/levelValidation.js";
 import { useBridgeGame } from "./hooks/useBridgeGame.js";
@@ -50,6 +51,7 @@ export default function BridgeMaster({
   );
 }
 function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
+  const hintId = useId();
   const t = { ...uz, ...config.translations?.[lang] },
     [showLevels, setShowLevels] = useState(false),
     [exited, setExited] = useState(false),
@@ -123,6 +125,15 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
     exited ||
     ["intro", "paused", "success", "failed"].includes(state.phase);
   const input = useGameInput({ state, dispatch });
+  const tutorial = state.level.difficulty === 1 && state.phase === "building";
+  const missingRoadIndex = state.level.roadNodeIds.findIndex((id, i, ids) =>
+    i < ids.length - 1 && !derived.edges.some(edge =>
+      edge.type === "road" && edge.id === getEdgeKey(id, ids[i + 1])));
+  const tutorialTestReady = tutorial && missingRoadIndex === -1;
+  const tutorialNodeId = tutorial && missingRoadIndex >= 0
+    ? state.level.roadNodeIds[missingRoadIndex +
+      (state.selectedNodeId === state.level.roadNodeIds[missingRoadIndex] ? 1 : 0)]
+    : null;
   const hint = state.message
     ? t.messages[state.message]
     : state.phase === "testing"
@@ -222,10 +233,13 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
               pose={simulation.vehiclePose}
               broken={simulation.broken}
               countdown={simulation.countdown}
+              tutorialNodeId={tutorialNodeId}
+              hintId={hintId}
             />
             <div
               className={`hint-bar ${state.message ? "warning" : ""}`}
               role="status"
+              id={hintId}
             >
               <span className="hint-icon">
                 <Icon name="bulb" size={18} />
@@ -235,7 +249,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
                 {t.target}: ≤ {state.level.parBudget}
               </span>
             </div>
-            <GameToolbar state={state} dispatch={dispatch} t={t} />
+            <GameToolbar state={state} dispatch={dispatch} t={t} tutorialTestReady={tutorialTestReady} hintId={hintId} />
           </section>
           <div className="below-game">
             <div className="legend">

@@ -19,6 +19,8 @@ export default function BridgeScene({
   pose,
   broken = false,
   countdown = 0,
+  tutorialNodeId,
+  hintId,
 }) {
   const { level } = state,
     ref = useRef(null),
@@ -233,6 +235,7 @@ export default function BridgeScene({
             aria-disabled={locked}
             aria-label={t.node(node.id)}
             aria-pressed={state.selectedNodeId === node.id}
+            aria-describedby={tutorialNodeId === node.id ? hintId : undefined}
             className={`node-marker ${state.selectedNodeId === node.id ? "selected" : ""}`}
             onPointerEnter={() => setHover(node.id)}
             onPointerLeave={() => setHover(null)}
@@ -247,6 +250,12 @@ export default function BridgeScene({
             }}
           >
             <circle cx={node.x} cy={node.y} r={radius} fill="transparent" />
+            {tutorialNodeId === node.id && (
+              <g pointerEvents="none" aria-hidden="true">
+                <circle cx={node.x} cy={node.y} r={24 / scale} fill="none" stroke="#ca8b21" strokeWidth={2 / scale} strokeDasharray={`${4 / scale} ${3 / scale}`} />
+                <path d={`M${node.x - 6 / scale} ${node.y - 35 / scale}l${6 / scale} ${6 / scale} ${6 / scale} ${-6 / scale}`} fill="none" stroke="#9f6a10" strokeWidth={3 / scale} />
+              </g>
+            )}
             <circle
               className="node-halo"
               cx={node.x}

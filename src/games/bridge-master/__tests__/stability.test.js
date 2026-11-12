@@ -5,6 +5,30 @@ import { calculateStability } from "../engine/stability.js";
 import { createTestRun, getSimulationOutcome } from "../engine/simulation.js";
 import { calculateStars, calculateScore } from "../engine/scoring.js";
 
+it("rejects a duplicate fixed edge substituted for a required fixed segment", () => {
+  const built = make(tutorial, [["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"]]);
+  const fixed = built.slice(0, 2).map(e => ({ ...e, isPlayerBuilt: false }));
+  const level = { ...tutorial, fixedEdges: fixed };
+  const supplied = [fixed[0], { ...fixed[0] }, ...built.slice(2)];
+  expect(getSimulationOutcome(level, supplied)).toMatchObject({valid: false, reasonCode: "invalidGraph"});
+  expect(createTestRun(level, supplied).outcome.valid).toBe(false);
+});
+
+it("accepts semantically identical fixed edges with reversed endpoints and property order", () => {
+  const built = make(tutorial, [["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"]]);
+  const fixed = built.slice(0, 2).map(e => ({ ...e, isPlayerBuilt: false }));
+  const level = { ...tutorial, fixedEdges: fixed };
+  const reversed = fixed.map(e => ({ type: e.type, cost: e.cost, length: e.length, isPlayerBuilt: false, toNodeId: e.fromNodeId, fromNodeId: e.toNodeId, id: e.id }));
+  const run = createTestRun(level, [...reversed, ...built.slice(2)]);
+  expect(run.outcome).toMatchObject({valid: true, status: "completed"});
+  expect(run.path.map(n => n.id)).toEqual(["a", "b", "c", "d", "e"]);
+  expect(run.durationMs).toBe(4000);
+});
+
+it.each([[null], [undefined], [1], [{}]])("rejects malformed serialized edges without throwing: %j", candidate => {
+  expect(getSimulationOutcome(tutorial, [candidate])).toMatchObject({valid: false, reasonCode: "invalidGraph"});
+});
+
 export const braced = {
   ...tutorial,
   id: "fixture",
