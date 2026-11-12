@@ -79,3 +79,4 @@ Dependencylar `package-lock.json` bilan qayd etilgan. ESLint 9.39.5 vaqtincha is
 - [Bajarish rejasi](docs/superpowers/plans/2026-11-12-bridge-master-mvp.md)
 - [Ish qaydlari](docs/implementation-progress.md)
 - [QA natijalari](docs/qa/bridge-master.md)
+- [Haqiqiy telefon va o‘quvchi sinovi yo‘riqnomasi](docs/qa/playtest-guide.md)

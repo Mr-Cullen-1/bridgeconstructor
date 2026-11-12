@@ -1,29 +1,39 @@
 import { test, expect } from "@playwright/test";
 import { solutions } from "../../src/games/bridge-master/__tests__/fixtures/solutions.js";
 import { connect, start, win } from "./helpers.js";
-test("360px touch game has usable targets, no overflow and completes", async ({
-  page,
-}) => {
-  await start(page);
-  for (const node of await page
-    .getByRole("button", { name: /^Nuqta / })
-    .all()) {
-    const target = await node.locator("circle").first().boundingBox();
-    expect(target.width).toBeGreaterThanOrEqual(43.9);
-    expect(target.height).toBeGreaterThanOrEqual(43.9);
-  }
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
-  await connect(page, solutions[0], true);
-  await page.screenshot({
-    path: "output/playwright/mobile-bridge.png",
-    fullPage: true,
+for (const viewport of [{ width: 360, height: 800 }, { width: 800, height: 360 }]) {
+  test(`all five levels complete by touch at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const errors = [];
+    page.on("pageerror", error => errors.push(error.message));
+    await page.goto("/");
+    await page.getByRole("button", { name: "Qurishni boshlash" }).tap();
+    for (let levelIndex = 0; levelIndex < solutions.length; levelIndex++) {
+      for (const node of await page.getByRole("button", { name: /^Nuqta / }).all()) {
+        const target = await node.locator("circle").first().boundingBox();
+        expect(target.width).toBeGreaterThanOrEqual(43.9);
+        expect(target.height).toBeGreaterThanOrEqual(43.9);
+      }
+      expect(await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      )).toBe(true);
+      await connect(page, solutions[levelIndex], true);
+      await page.screenshot({
+        path: viewport.width === 360 && levelIndex === 0
+          ? "output/playwright/mobile-bridge.png"
+          : `output/playwright/mobile-${viewport.width}-level-${levelIndex + 1}.png`,
+        fullPage: true,
+      });
+      await win(page, true);
+      await expect(page.getByLabel("3 yulduz", { exact: true })).toBeVisible();
+      if (levelIndex < solutions.length - 1) {
+        await page.getByRole("button", { name: "Keyingi bosqich" }).tap();
+        await page.getByRole("button", { name: "Qurishni boshlash" }).tap();
+      }
+    }
+    expect(errors).toEqual([]);
   });
-  await win(page);
-});
+}
 test("landscape remains usable and can exit then restart", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 360 });
   await start(page);

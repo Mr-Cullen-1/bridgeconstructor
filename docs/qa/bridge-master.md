@@ -10,13 +10,13 @@ Lokal standalone versiya. Real LMS, production deploy yoki real o‘quvchi playt
 | Lint | O‘tdi, xato yoki warning yo‘q | `npm.cmd run lint` |
 | Production build | O‘tdi | `npm.cmd run build`; JS 263.17 kB, gzip 82.39 kB |
 | Dependency audit | 0 zaiflik | `npm.cmd audit --json` |
-| Yakuniy E2E | 7/7 o‘tdi, 56.6 sekund | `npm.cmd run test:e2e`; review tuzatishlaridan keyingi run |
+| Yakuniy E2E | 8/8 o‘tdi, 1.6 daqiqa | `npm.cmd run test:e2e`; barcha level uchun portrait/landscape touch qo‘shilgan run |
 | Chrome, 1366×768 | 5 level success, replay, level select | `gameplay.spec.js` |
 | Chrome fail→repair | Valid kuchsiz graph fail, Retry qurilishni saqlaydi, support qo‘shilgach success | `gameplay.spec.js` |
 | Klaviatura va tahrirlash | Node Enter, edge delete, Ctrl+Z, reset, budget rejection, sound toggle | `gameplay.spec.js` |
 | Pause/resume | Countdown/simulation to‘xtaydi, qayta davom etib successga yetadi | Hook va browser testlari |
-| Chrome touch, 360×800 | 44 CSS px node hit-area, horizontal overflow yo‘q, tap orqali tutorial success | `mobile.spec.js` |
-| Chrome touch, 800×360 | Landscape qurilish/success, exit/restart, horizontal overflow yo‘q | `mobile.spec.js` |
+| Chrome touch, 360×800 | Barcha 5 level 3 yulduz bilan tugaydi; node/material/Test/Next tap bilan; har levelda 44 CSS px target va horizontal overflow tekshiruvi | `mobile.spec.js` |
+| Chrome touch, 800×360 | Barcha 5 level touch orqali 3 yulduz bilan tugaydi; har levelda target/overflow tekshiruvi; qo‘shimcha exit/restart | `mobile.spec.js` |
 | Edge, 1366×768 | Tutorial success, browser JS xatosi yo‘q | `smoke.spec.js` |
 | Reduced motion | Natija o‘zgarmaydi, animatsiya qisqaradi | Hook testi + E2E default reduced motion |
 | Standalone | Callback/API bo‘lmasa barcha level ishlaydi | E2E va adapter testlari |
@@ -31,9 +31,15 @@ Lokal standalone versiya. Real LMS, production deploy yoki real o‘quvchi playt
 
 - [Desktop screenshot](../../output/playwright/desktop-bridge.png)
 - [360px mobile screenshot](../../output/playwright/mobile-bridge.png)
+- [Level 5 portrait](../../output/playwright/mobile-360-level-5.png)
+- [Level 5 landscape](../../output/playwright/mobile-800-level-5.png)
 - [Playwright HTML report](../../playwright-report/index.html)
 
 Desktop va mobile screenshotlari ochilib ko‘rildi. Desktopda o‘yin kartasining pastki qismiga sahifa scrolli kerak bo‘lishi mumkin; mobile toolbar va matnlar kenglikdan tashqariga chiqmaydi. SVG hit-area haqiqiy render scale asosida hisoblanadi.
+
+Keyingi QA bosqichida Level 5 portrait va landscape screenshotlari ham ochilib tekshirildi. Landscape ekran balandligi 360px bo‘lganda toolbar uchun vertikal scroll kerak; touch test bu oqimni bajaradi. Bu bosqichda product kodi o‘zgarmadi: unit/build natijalari oldingi tekshirilgan product commitiga tegishli, E2E va lint esa qayta bajarildi.
+
+Haqiqiy telefon va yangi o‘quvchi tekshiruvi uchun [sinov yo‘riqnomasi va bo‘sh qayd jadvali](playtest-guide.md) tayyor. Natija kiritilmaguncha tashqi sinovlar `tekshirilmagan` bo‘lib qoladi.
 
 ## Topilib tuzatilgan xatolar
 

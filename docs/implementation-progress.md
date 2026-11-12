@@ -29,3 +29,10 @@
 - Ruling: missing tutorial visual cues are a first-player acceptance gap; included in this fix pass. Added visible node arrow/ring and ready-to-test outline with accessible hint associations. Component regression was red before implementation and green afterward.
 - Final lint and production build passed: JS 263.17 kB, gzip 82.39 kB; CSS 10.82 kB, gzip 3.37 kB.
 - No merge, remote push, deployment or real LMS changes. Work stays on local `feat/bridge-master-mvp`.
+
+## Keyingi bosqich: mobile QA va playtestga tayyorgarlik
+- Oldingi qaydlar tarixiy: foydalanuvchi so‘rovi bilan repo `main` branchiga o‘tkazildi va `https://github.com/Mr-Cullen-1/bridgeconstructor.git` ga push qilindi. Ushbu bosqich boshlanishida local/remote HEAD `2f2d6ab` edi.
+- Mavjud rejaning Task 6 va 8 bandlari davom ettirilmoqda: barcha 5 levelni 360×800 hamda 800×360 touch emulyatsiyada tekshirish. Material, node, Test va Next tugmalari ham touch orqali ishlatiladi.
+- Real Android/iPhone va yangi o‘quvchi uchun `docs/qa/playtest-guide.md` tayyorlandi: ulanish, takrorlash qadamlari, vaqt o‘lchash mezonlari, bo‘sh qayd jadvali. Real sinov natijasi uydirilmagan.
+- Product kodi yoki LMS doirasi o‘zgartirilmagan. Ushbu bosqichda avtomatik deploy yoki LAN server ochilmagan.
+- Yakuniy tekshiruv: Chrome/Edge E2E 8/8 (1.6 daqiqa), lint xatosiz, `git diff --check` xatosiz. Level 5 portrait/landscape screenshotlari ko‘rib chiqildi. Unit/build qayta bajarilmadi: product kodi va dependencylar o‘zgarmagan.
