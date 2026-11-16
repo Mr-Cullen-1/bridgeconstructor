@@ -87,7 +87,7 @@ export const uz = {
   hintSupport: "Yo‘lni quring. Tayanch rejimida yuqoridagi nuqtalarni ulang.",
   levelHints: {
     "bridge-04":
-      "B va D nuqtalaridan foydalanish shart emas. Ularni tashlab o‘tib, uzunroq yo‘l kesmalari bilan tayanch materialini tejang.",
+      "B va D nuqtalaridan foydalanish shart emas. «Yo‘l»: A–C, C–E. «Tayanch»: A–F, C–F, E–F. Yo‘lni B va D da bo‘lmang — aks holda ularga ham tayanch kerak bo‘ladi.",
     "bridge-06": "Qiyalikdagi yo‘lning ichki nuqtalarini ham yuqori tayanchga ulang.",
     "bridge-07": "F nuqtasi yo‘lning pastida. Pastdan qurilgan uchburchaklar ham ko‘prikni mustahkamlaydi.",
     "bridge-08": "Yo‘lning ko‘tarilish va tushish qismlarida uchburchaklar hosil qiling.",

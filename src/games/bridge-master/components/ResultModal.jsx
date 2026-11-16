@@ -9,6 +9,7 @@ export default function ResultModal({
   onSelect,
   isLast,
   reasonCode,
+  levelHint,
 }) {
   const success = result.status === "completed";
   return (
@@ -28,6 +29,7 @@ export default function ResultModal({
           ? t.successBody
           : (t.failureReasons?.[reasonCode] ?? t.failedBody)}
       </p>
+      {!success && levelHint && <p>{levelHint}</p>}
       <div className="result-stats">
         <div>
           <strong>{result.score}</strong>

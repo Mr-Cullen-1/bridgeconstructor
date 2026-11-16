@@ -101,3 +101,10 @@
 - Source tests 96/96, lint and build passed. Independent read-only review found no actionable issue. Full verification and per-level reference material costs are recorded in `docs/qa/twenty-levels-2026-11-16.md`.
 - Exported JSX is 1,448,388 bytes, SHA-256 `448fd1bf326710231593187b81ba84af52286c0a43ab7f9d0272dd3ddfd4afcd`; repeated export matches. No dependencies or engine rules changed.
 - Final browser verification: **33/33** main scenarios (all 20 levels on desktop and both touch viewports), **3/3** exported-JSX LMS scenarios (20 three-star completions, 20 callbacks, matching manifest, offline sandbox, failure/repair/exit). Temporary QA servers stopped. Full pack is ready for the requested main commit/push.
+
+## Level four construction guidance — 2026-11-16
+- User confirmed building A–B–C–D–E while omitting B/D supports. Reproduced the failure: those road joints need bracing even though the total road length matches A–C/C–E. Replacing only the four road segments with A–C and C–E, while keeping A–F/C–F/E–F supports, passes with 139/150 material, 90% stability and three stars. Engine rules and budgets remain unchanged.
+- Clarified the level hint with explicit road/support segments and the reason for skipping B/D. Failed result dialogs now show the available level hint; success dialogs do not.
+- Added a browser regression using the reported construction, failure, removal of only road edges, repair and three-star success at 1366×768 and 360×800 with normal motion. Before the fix the failure dialog lacked repair guidance; after it all three targeted level-four scenarios passed. Mobile failure screenshot inspected.
+- Fresh verification: 96/96 source tests, 3/3 targeted main browser scenarios, 3/3 exported-JSX LMS scenarios including all 20 levels; lint and production build pass. Known bundle-size warning remains. Full main browser suite was not rerun for this guidance change.
+- Re-exported content version 1.1.1, contract v1: 1,448,553 bytes; SHA-256 `aad8087ccba622dde4e3001752097ba41593f72dcbaa63ad94c4a40c06f6937b`. Repeated export matches. No live LMS upload or deployment.

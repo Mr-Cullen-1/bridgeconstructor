@@ -2692,7 +2692,7 @@ var uz = {
 	hintTest: "Yo‘l tayyor! Endi ko‘prikni sinang.",
 	hintSupport: "Yo‘lni quring. Tayanch rejimida yuqoridagi nuqtalarni ulang.",
 	levelHints: {
-		"bridge-04": "B va D nuqtalaridan foydalanish shart emas. Ularni tashlab o‘tib, uzunroq yo‘l kesmalari bilan tayanch materialini tejang.",
+		"bridge-04": "B va D nuqtalaridan foydalanish shart emas. «Yo‘l»: A–C, C–E. «Tayanch»: A–F, C–F, E–F. Yo‘lni B va D da bo‘lmang — aks holda ularga ham tayanch kerak bo‘ladi.",
 		"bridge-06": "Qiyalikdagi yo‘lning ichki nuqtalarini ham yuqori tayanchga ulang.",
 		"bridge-07": "F nuqtasi yo‘lning pastida. Pastdan qurilgan uchburchaklar ham ko‘prikni mustahkamlaydi.",
 		"bridge-08": "Yo‘lning ko‘tarilish va tushish qismlarida uchburchaklar hosil qiling.",
@@ -38014,7 +38014,7 @@ function Modal({ title, children, className = "", eyebrow }) {
 	}, eyebrow && /* @__PURE__ */ React.createElement("span", { className: "modal-eyebrow" }, eyebrow), /* @__PURE__ */ React.createElement("h2", null, title), children));
 }
 // src/games/bridge-master/components/ResultModal.jsx
-function ResultModal({ result, t, onRetry, onReplay, onNext, onSelect, isLast, reasonCode }) {
+function ResultModal({ result, t, onRetry, onReplay, onNext, onSelect, isLast, reasonCode, levelHint }) {
 	const success = result.status === "completed";
 	return /* @__PURE__ */ React.createElement(Modal, {
 		title: success ? t.success : t.failed,
@@ -38032,7 +38032,7 @@ function ResultModal({ result, t, onRetry, onReplay, onNext, onSelect, isLast, r
 		name: "star",
 		size: 40,
 		className: n <= result.stars ? "earned" : "empty"
-	}))), /* @__PURE__ */ React.createElement("p", null, success ? t.successBody : t.failureReasons?.[reasonCode] ?? t.failedBody), /* @__PURE__ */ React.createElement("div", { className: "result-stats" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, result.score), /* @__PURE__ */ React.createElement("span", null, t.score)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, result.materialUsed), /* @__PURE__ */ React.createElement("span", null, t.used)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, Math.round(result.stabilityScore * 100), "%"), /* @__PURE__ */ React.createElement("span", null, t.stability))), /* @__PURE__ */ React.createElement("p", { className: "attempt-summary" }, t.attempts, ": ", /* @__PURE__ */ React.createElement("b", null, result.attempts), " · ", t.activeTime, ": ", /* @__PURE__ */ React.createElement("b", null, result.durationSeconds, " ", t.seconds)), /* @__PURE__ */ React.createElement("div", { className: "modal-actions" }, success ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", {
+	}))), /* @__PURE__ */ React.createElement("p", null, success ? t.successBody : t.failureReasons?.[reasonCode] ?? t.failedBody), !success && levelHint && /* @__PURE__ */ React.createElement("p", null, levelHint), /* @__PURE__ */ React.createElement("div", { className: "result-stats" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, result.score), /* @__PURE__ */ React.createElement("span", null, t.score)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, result.materialUsed), /* @__PURE__ */ React.createElement("span", null, t.used)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, Math.round(result.stabilityScore * 100), "%"), /* @__PURE__ */ React.createElement("span", null, t.stability))), /* @__PURE__ */ React.createElement("p", { className: "attempt-summary" }, t.attempts, ": ", /* @__PURE__ */ React.createElement("b", null, result.attempts), " · ", t.activeTime, ": ", /* @__PURE__ */ React.createElement("b", null, result.durationSeconds, " ", t.seconds)), /* @__PURE__ */ React.createElement("div", { className: "modal-actions" }, success ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", {
 		className: "primary",
 		onClick: isLast ? onSelect : onNext
 	}, isLast ? t.levels : t.next, /* @__PURE__ */ React.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ React.createElement("button", {
@@ -38299,6 +38299,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
 	}, t.exit))), !showLevels && !exited && ["success", "failed"].includes(state.phase) && /* @__PURE__ */ React.createElement(ResultModal, {
 		result: state.result,
 		reasonCode: state.run?.outcome.reasonCode,
+		levelHint,
 		t,
 		onRetry: () => dispatch({ type: "RETRY" }),
 		onReplay: () => loadLevel(state.level),
@@ -38329,7 +38330,7 @@ var bridge_master_default = ":root {\n  font-family: \"Segoe UI\", system-ui, sa
 var bridgeMasterManifest = Object.freeze({
 	contractVersion: 1,
 	gameId: "bridge-master",
-	version: "1.1.0",
+	version: "1.1.1",
 	runtime: "react-19",
 	requiredCapabilities: ["webgl2"],
 	levelIds: levels.map((level) => level.id)

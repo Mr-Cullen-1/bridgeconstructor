@@ -33,7 +33,7 @@ import Game, { bridgeMasterManifest } from "./BridgeMaster.jsx";
 {
   contractVersion: 1,
   gameId: "bridge-master",
-  version: "1.1.0",
+  version: "1.1.1",
   runtime: "react-19",
   requiredCapabilities: ["webgl2"],
   levelIds: [
@@ -297,20 +297,20 @@ CSS/animatsiya/mexanika/embedded levels o‘zgarishi va mavjud props/callbacklar
 
 ## 12. Topshirilgan artifact tekshiruvi
 
-2026-11-16: “Quruvchilar ustaxonasi” UI, 20 bosqich va sahifalangan tanlov bilan qayta eksport qilindi; kontent versiyasi 1.1.0, callback va manifest kontrakti v1 saqlangan.
+2026-11-16: “Quruvchilar ustaxonasi” UI, 20 bosqich va sahifalangan tanlov bilan qayta eksport qilindi. 1.1.1 yangilanishida 4-bosqich yo‘li A–C/C–E qilib aniq tushuntiriladi; muvaffaqiyatsiz urinish oynasida bosqich ko‘rsatmasi ham chiqadi. Callback va manifest kontrakti v1 saqlangan.
 
-SHA-256: `448fd1bf326710231593187b81ba84af52286c0a43ab7f9d0272dd3ddfd4afcd`
+SHA-256: `aad8087ccba622dde4e3001752097ba41593f72dcbaa63ad94c4a40c06f6937b`
 
-Hajm: **1 448 388 bayt**. Barcha qolgan importlar `react`; bitta JS/JSX chiqishi, external chunk/CSS/source-map yo‘q. Three.js MIT litsenziyasi fayl boshida saqlangan.
+Hajm: **1 448 553 bayt**. Barcha qolgan importlar `react`; bitta JS/JSX chiqishi, external chunk/CSS/source-map yo‘q. Three.js MIT litsenziyasi fayl boshida saqlangan.
 
 Mahalliy QA: haqiqiy eksport JSXdan React/ReactDOM bilan runner bundle qilindi; server faqat parent HTML, iframe HTML va runner JSni berdi. Iframe `sandbox="allow-scripts"`, `connect-src 'none'` bilan ishladi. Tekshiruv natijalari:
 
 - Artifact check o‘tdi: syntax/export/import, embedded content va bitta chiqish fayli tekshirildi; qayta eksportda checksum o‘zgarmadi.
-- **3/3 LMS browser ssenariysi o‘tdi:** barcha 20 level 3 yulduz bilan, 20 ta completion callback; manifestda 20 ta ID va 1.1.0 versiya tasdiqlandi; xato oxirgi kesmada qulash → failed event → repair → success → exit callback; 360×800 LMS oynasida no-scroll va completion.
+- **3/3 LMS browser ssenariysi o‘tdi:** barcha 20 level 3 yulduz bilan, 20 ta completion callback; manifestda 20 ta ID va 1.1.1 versiya tasdiqlandi; xato oxirgi kesmada qulash → failed event → repair → success → exit callback; 360×800 LMS oynasida no-scroll va completion.
 - WebGL renderer ishladi, parent DOMga kirish bloklandi, tashqi runtime request kuzatilmadi: faqat parent HTML, iframe HTML va runner JS yuklandi. Runtime browser error kuzatilmadi.
 - Mobil va oxirgi kesmaning qulash screenshotlari ko‘rib chiqildi.
-- Mavjud source testlari **96/96**, asosiy browser ssenariylari **33/33**, ESLint, production build va JSX checksum tekshiruvi o‘tdi. Production builddagi katta bundle ogohlantirishi saqlanadi.
-- Mustaqil read-only review artifact va handoffda bloklovchi muammo topmadi.
+- 1.1.1 uchun source testlari **96/96**, 4-bosqichga oid browser ssenariylari **3/3**, ESLint, production build va JSX checksum tekshiruvi o‘tdi. 1366×768 va 360×800 oynalarida A–B–C–D–E yo‘li bilan fail takrorlandi; tayanchlarni saqlab, yo‘lni A–C/C–E ga almashtirish 139 material va 3 yulduz berdi. Fail oynasida bosqich ko‘rsatmasi ko‘rinadi, success oynasida yashiriladi.
+- Oldingi 1.1.0 uchun to‘liq asosiy browser to‘plami **33/33** o‘tgan va mustaqil read-only review bloklovchi muammo topmagan; 1.1.1 uchun yuqoridagi maqsadli browser tekshiruvlari bajarildi. Production builddagi katta bundle ogohlantirishi saqlanadi.
 
 Live LMS, real auth/backend, durable outbox/ACK/reward va haqiqiy telefon tekshiruvi bajarilmagan. Ular 11-bo‘limdagi LMS qabul mezonlari bo‘yicha dev jamoa tomonidan tekshiriladi.
 

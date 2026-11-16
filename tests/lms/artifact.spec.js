@@ -30,7 +30,7 @@ test("the single uploaded JSX runs all twenty levels offline inside an opaque sa
   );
   expect(messages.find((m) => m.type === "ready").payload).toMatchObject({
     contractVersion: 1,
-    version: "1.1.0",
+    version: "1.1.1",
     levelIds: Array.from({ length: 20 }, (_, i) => `bridge-${String(i + 1).padStart(2, "0")}`),
   });
   await expect(game.getByRole("button", { name: "Keyingi bosqich" })).toHaveCount(0);

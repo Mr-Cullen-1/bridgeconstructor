@@ -349,6 +349,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
           <ResultModal
             result={state.result}
             reasonCode={state.run?.outcome.reasonCode}
+            levelHint={levelHint}
             t={t}
             onRetry={() => dispatch({ type: "RETRY" })}
             onReplay={() => loadLevel(state.level)}

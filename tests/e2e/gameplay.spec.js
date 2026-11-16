@@ -53,6 +53,38 @@ test("level four explains optional nodes and completes within its budget", async
   await page.getByRole("button", { name: "Keyingi bosqich" }).click();
   await expect(page.getByRole("dialog")).toHaveAccessibleName("Yangi cho‘qqilar");
 });
+for (const viewport of [{ width: 1366, height: 768 }, { width: 360, height: 800 }]) {
+  test(`level four offers repair guidance for a road through optional nodes at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await start(page);
+    await choose(page, 4, "Oqilona quruvchi");
+    await connect(page, [
+      ["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"],
+      ["a", "f", "support"], ["c", "f", "support"], ["e", "f", "support"],
+    ]);
+    await page.getByRole("button", { name: "Ko‘prikni sinash" }).click();
+    const failure = page.getByRole("dialog", { name: "Yana bir yechim bor!" });
+    await expect(failure).toBeVisible();
+    await expect(failure).toContainText("Tayanch yetishmadi");
+    await expect(failure).toContainText("A–C, C–E");
+    await page.screenshot({ path: `output/playwright/level-four-repair-${viewport.width}.png` });
+    await page.getByRole("button", { name: "Ko‘prikni yaxshilash" }).click();
+    await expect(page.getByLabel("Material sarfi")).toContainText("139 / 150");
+    for (const pair of ["A–B", "B–C", "C–D", "D–E"]) {
+      await page.getByRole("button", { name: `Kesma ${pair}`, exact: true }).click();
+      await page.getByRole("button", { name: "Tanlangan kesmani o‘chirish", exact: true }).click();
+    }
+    await expect(page.getByLabel("Material sarfi")).toContainText("83 / 150");
+    await page.getByRole("button", { name: "Yo‘l", exact: true }).click();
+    await connect(page, [["a", "c"], ["c", "e"]]);
+    await expect(page.getByLabel("Material sarfi")).toContainText("139 / 150");
+    await win(page);
+    await expect(page.getByLabel("3 yulduz", { exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog")).not.toContainText("A–C, C–E");
+  });
+}
+
 test("empty, incomplete and unsupported bridges can be tested and repaired", async ({
   page,
 }) => {
