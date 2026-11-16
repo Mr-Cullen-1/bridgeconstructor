@@ -6,9 +6,10 @@ import { getSimulationOutcome } from "../engine/simulation.js";
 import { calculateTotalCost } from "../engine/budget.js";
 import { calculateStars } from "../engine/scoring.js";
 import { solutions } from "./fixtures/solutions.js";
-it("ships five unique levels", () => {
-  expect(levels).toHaveLength(5);
-  expect(new Set(levels.map((l) => l.id)).size).toBe(5);
+it("ships twenty unique levels", () => {
+  expect(levels).toHaveLength(20);
+  expect(new Set(levels.map((l) => l.id)).size).toBe(20);
+  expect(new Set(levels.map((l) => JSON.stringify(l.nodes))).size).toBeGreaterThanOrEqual(19);
 });
 it("level four saves support material by skipping optional road nodes", () => {
   const level = levels[3];
@@ -26,7 +27,7 @@ it("level four saves support material by skipping optional road nodes", () => {
   expect(calculateTotalCost(previousSolution)).toBe(185);
   expect(calculateTotalCost(previousSolution)).toBeGreaterThan(level.budget);
 });
-it.each([0, 1, 2, 3, 4])(
+it.each(Array.from({ length: 20 }, (_, index) => index))(
   "level %i has an affordable three-star solution and a useful weak bridge",
   (index) => {
     const level = levels[index];
@@ -52,10 +53,7 @@ it.each([0, 1, 2, 3, 4])(
       }),
     ).toBe(3);
     if (index > 0) {
-      const weak = edges.filter(
-        (e) =>
-          !(e.type === "support" && [e.fromNodeId, e.toNodeId].includes("e")),
-      );
+      const weak = edges.filter((e) => !e.isPlayerBuilt || e.type === "road");
       expect(getSimulationOutcome(level, weak)).toMatchObject({
         valid: true,
         status: "failed",

@@ -1,0 +1,85 @@
+{
+  "id": "bridge-08",
+  "title": "Yumshoq dovon",
+  "subtitle": "Ko‘tarilish va tushishni bitta ko‘prikka birlashtiring",
+  "difficulty": 8,
+  "budget": 215,
+  "parBudget": 190,
+  "costPerUnit": 0.1,
+  "stabilityThreshold": 0.85,
+  "threeStarStability": 0.9,
+  "startNodeId": "a",
+  "finishNodeId": "e",
+  "roadNodeIds": [
+    "a",
+    "b",
+    "c",
+    "d",
+    "e"
+  ],
+  "supportPolicy": "braced",
+  "nodes": [
+    {
+      "id": "a",
+      "x": 120,
+      "y": 300,
+      "type": "anchor"
+    },
+    {
+      "id": "b",
+      "x": 260,
+      "y": 245,
+      "type": "road"
+    },
+    {
+      "id": "c",
+      "x": 400,
+      "y": 220,
+      "type": "road"
+    },
+    {
+      "id": "d",
+      "x": 540,
+      "y": 245,
+      "type": "road"
+    },
+    {
+      "id": "e",
+      "x": 680,
+      "y": 300,
+      "type": "anchor"
+    },
+    {
+      "id": "f",
+      "x": 400,
+      "y": 100,
+      "type": "joint"
+    }
+  ],
+  "fixedEdges": [],
+  "buildRules": {
+    "allowedEdgeTypes": [
+      "road",
+      "support"
+    ],
+    "maxEdgeLength": 360,
+    "allowDuplicateEdges": false
+  },
+  "stabilityConfig": {
+    "wC": 0.6,
+    "wT": 0.4,
+    "wU": 0.2,
+    "wV": 0.1,
+    "maxUnbracedSpan": 300
+  },
+  "scoreConfig": {
+    "base": 500,
+    "savingBonus": 250,
+    "stabilityBonus": 250
+  },
+  "vehicle": {
+    "speed": 140,
+    "width": 34,
+    "height": 20
+  }
+}

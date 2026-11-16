@@ -2,7 +2,8 @@ import { test, expect } from "@playwright/test";
 import { solutions } from "../../src/games/bridge-master/__tests__/fixtures/solutions.js";
 import { connect, win, choose } from "../e2e/helpers.js";
 
-test("the single uploaded JSX runs all five levels offline inside an opaque sandbox", async ({ page }) => {
+test("the single uploaded JSX runs all twenty levels offline inside an opaque sandbox", async ({ page }) => {
+  test.setTimeout(180000);
   const errors = [], requests = [];
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("request", (r) => requests.push(new URL(r.url()).pathname));
@@ -14,20 +15,25 @@ test("the single uploaded JSX runs all five levels offline inside an opaque sand
     try { return !!parent.document; } catch { return false; }
   })).toBe(false);
   await expect(game.locator(".world-canvas")).toHaveAttribute("data-renderer", "webgl");
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 20; i++) {
     await connect(game, solutions[i]);
     await win(game);
     await expect.poll(() => page.evaluate(() => window.__lmsMessages.filter((m) => m.type === "completed").length)).toBe(i + 1);
-    if (i < 4) {
+    if (i < 19) {
       await game.getByRole("button", { name: "Keyingi bosqich" }).click();
       await game.getByRole("button", { name: "Qurishni boshlash" }).click();
     }
   }
   const messages = await page.evaluate(() => window.__lmsMessages);
   expect(messages.filter((m) => m.type === "completed").map((m) => [m.payload.levelId, m.payload.stars])).toEqual(
-    [1, 2, 3, 4, 5].map((n) => [`bridge-0${n}`, 3]),
+    Array.from({ length: 20 }, (_, i) => [`bridge-${String(i + 1).padStart(2, "0")}`, 3]),
   );
-  expect(messages.some((m) => m.type === "ready" && m.payload.contractVersion === 1)).toBe(true);
+  expect(messages.find((m) => m.type === "ready").payload).toMatchObject({
+    contractVersion: 1,
+    version: "1.1.0",
+    levelIds: Array.from({ length: 20 }, (_, i) => `bridge-${String(i + 1).padStart(2, "0")}`),
+  });
+  await expect(game.getByRole("button", { name: "Keyingi bosqich" })).toHaveCount(0);
   expect(messages.filter((m) => m.type === "error")).toEqual([]);
   expect([...new Set(requests)].sort()).toEqual(["/", "/game/", "/game/runner.js"]);
   expect(errors).toEqual([]);

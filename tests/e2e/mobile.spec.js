@@ -2,13 +2,19 @@ import { test, expect } from "@playwright/test";
 import { solutions } from "../../src/games/bridge-master/__tests__/fixtures/solutions.js";
 import { connect, start, win } from "./helpers.js";
 for (const viewport of [{ width: 360, height: 800 }, { width: 800, height: 360 }]) {
-  test(`all five levels complete by touch at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+  test(`all twenty levels complete by touch at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    // Twenty touch-built bridges and screenshots take nearly three minutes on this Windows host.
+    test.setTimeout(300000);
     await page.setViewportSize(viewport);
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.goto("/");
     await page.getByRole("button", { name: "Qurishni boshlash" }).tap();
     for (let levelIndex = 0; levelIndex < solutions.length; levelIndex++) {
+      for (const button of await page.locator(".toolbar button").all()) {
+        const bounds = await button.boundingBox();
+        expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+      }
       for (const node of await page.getByRole("button", { name: /^Nuqta / }).all()) {
         const target = await node.locator("circle").first().boundingBox();
         expect(target.width).toBeGreaterThanOrEqual(43.9);

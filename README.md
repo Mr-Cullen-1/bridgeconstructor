@@ -1,6 +1,6 @@
 # Bridge Master
 
-Junior IT Academy GameLab uchun React + Three.js asosidagi lokal ko‘prik qurish o‘yini. Haqiqiy 3D landshaft, ko‘prik va avtomobil; 2D boshqaruv va accessible SVG hit-targetlar. Beshta bosqich, road/support qurilishi, material byudjeti, undo/delete/reset va deterministik ko‘prik tekshiruvi mavjud.
+Junior IT Academy GameLab uchun React + Three.js asosidagi lokal ko‘prik qurish o‘yini. Haqiqiy 3D landshaft, ko‘prik va avtomobil; 2D boshqaruv va accessible SVG hit-targetlar. 20 ta bosqich, road/support qurilishi, material byudjeti, undo/delete/reset va deterministik ko‘prik tekshiruvi mavjud.
 
 Interfeys butun viewportga moslashadi: o‘yin, boshqaruv va asosiy modallar uchun sahifa scrolli kerak emas. `3D` / `Old` tugmalari kamerani almashtiradi; sahnaning bo‘sh joyini tortish orqali ko‘rish burchagini o‘zgartirish mumkin. Mobil qurilmada ham nuqtalar ketma-ket tap bilan ulanadi.
 
@@ -40,7 +40,7 @@ Pause va yashirin browser tab vaqtni/animatsiyani to‘xtatadi. Sound dastlab o�
 ## Arxitektura
 
 - `src/games/bridge-master/engine/` — React/DOMsiz graph, build rules, narx, stability, simulation, scoring va reducer.
-- `levels/bridge-01.json` … `bridge-05.json` — koordinatalar, budget, cheklovlar va thresholdlar.
+- `levels/bridge-01.json` … `bridge-20.json` — koordinatalar, budget, cheklovlar va thresholdlar.
 - `components/` — canvas lifecycle, kameraga mos accessible SVG input, boshqaruv va modallar.
 - `scene/` — Three.js world, 3D material/geometriya, yoritish/soya, animatsiya va kamera proyeksiyasi; barcha assetlar lokal procedural geometriya.
 - `hooks/` — input, o‘yin holati, RAF lifecycle, preferences va LMS eventlari.
@@ -91,7 +91,7 @@ Dependencylar `package-lock.json` bilan qayd etilgan. ESLint 9.39.5 vaqtincha is
 ## Bitta JSX orqali LMSga topshirish
 
 Tayyor fayllar: [BridgeMaster.jsx](delivery/BridgeMaster.jsx) va [LMS dev jamoasi uchun hujjat](delivery/LMS-INTEGRATION.md).
-O‘yin, CSS, beshta level va Three.js bir JSX ichida; host faqat React runtime va callback transportini beradi.
+O‘yin, CSS, 20 ta level va Three.js bir JSX ichida; host faqat React runtime va callback transportini beradi. Kontent versiyasi `1.1.0`, callback kontrakti `v1`. Bosqichlar beshtadan to‘rtta sahifada tanlanadi; oyna joriy bosqich sahifasida ochiladi.
 
 ```powershell
 npm.cmd run export:lms
@@ -99,6 +99,6 @@ npm.cmd run test:lms
 ```
 
 `export:lms` mavjud source’dan bitta artifact chiqaradi va Reactdan boshqa import/chunk qolmaganini tekshiradi.
-`test:lms` aynan shu artifactni sandbox iframe ichida ishga tushirib, besh level, callbacks, qulash/repair va mobil viewportni tekshiradi.
+`test:lms` aynan shu artifactni sandbox iframe ichida ishga tushirib, barcha 20 level, callbacks, qulash/repair va mobil viewportni tekshiradi. [20 bosqichli paket tekshiruvi](docs/qa/twenty-levels-2026-11-16.md).
 Mahalliy LMS ko‘rinishini qo‘lda ochish: eksportdan keyin `npm.cmd run preview:lms`, so‘ng `http://127.0.0.1:4174`.
 Bu lokal QA runner; live LMS upload, backend, auth, durable outbox yoki publish xizmatini amalga oshirmaydi.

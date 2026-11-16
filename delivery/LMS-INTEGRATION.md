@@ -13,7 +13,7 @@ Topshiriladigan fayllar:
 | `BridgeMaster.jsx` | LMSga yuklanadigan to‘liq o‘yin |
 | `LMS-INTEGRATION.md` | Ushbu texnik topshiriq; LMSga kontent sifatida yuklash shart emas |
 
-JSX ichida beshta bosqich, o‘zbekcha matnlar, CSS, SVG ikonalar, Three.js, procedural 3D sahna, yoritish, soyalar, kamera, animatsiyalar, ovoz, qurilish, hisoblash, qulash va callback adapteri bor. Qo‘shimcha CSS/JSON/rasm/model/font fayli, Three.js importi yoki CDN talab qilinmaydi. Test yechimlari va test frameworklari faylga kiritilmagan.
+JSX ichida 20 ta bosqich, o‘zbekcha matnlar, CSS, SVG ikonalar, Three.js, procedural 3D sahna, yoritish, soyalar, kamera, animatsiyalar, ovoz, qurilish, hisoblash, qulash va callback adapteri bor. Qo‘shimcha CSS/JSON/rasm/model/font fayli, Three.js importi yoki CDN talab qilinmaydi. Test yechimlari va test frameworklari faylga kiritilmagan.
 
 **LMS ta’minlaydi:** React/ReactDOM muhiti, JSX/ES module kompilyatsiyasi, izolatsiyalangan oynada mount, upload/preview/publish/versioning, o‘quvchi va darsga bog‘lash, natijani backendga ishonchli saqlash.
 
@@ -33,10 +33,15 @@ import Game, { bridgeMasterManifest } from "./BridgeMaster.jsx";
 {
   contractVersion: 1,
   gameId: "bridge-master",
-  version: "1.0.0",
+  version: "1.1.0",
   runtime: "react-19",
   requiredCapabilities: ["webgl2"],
-  levelIds: ["bridge-01", "bridge-02", "bridge-03", "bridge-04", "bridge-05"]
+  levelIds: [
+    "bridge-01", "bridge-02", "bridge-03", "bridge-04", "bridge-05",
+    "bridge-06", "bridge-07", "bridge-08", "bridge-09", "bridge-10",
+    "bridge-11", "bridge-12", "bridge-13", "bridge-14", "bridge-15",
+    "bridge-16", "bridge-17", "bridge-18", "bridge-19", "bridge-20"
+  ]
 }
 ```
 
@@ -53,7 +58,7 @@ Manifest yordamchi metadata; server uni alohida validatsiya qiladi. Artifactning
 | Transport | Production HTTPS; lokal tekshiruv localhost. Oddiy LAN HTTP secure context bo‘lmasligi mumkin |
 | Ovoz | Web Audio, faqat foydalanuvchi tugma bosgandan so‘ng; ovoz ishlamasa o‘yin davom etadi |
 | Mount | Brauzerda client-side `createRoot`; o‘yinni SSR orqali render qilish talab qilinmaydi |
-| Upload limiti | Tavsiya: kamida 5 MiB limit. Hozirgi JSX 1 424 634 bayt; juda kichik matn maydonida kesib saqlamang |
+| Upload limiti | Tavsiya: kamida 5 MiB limit. Hozirgi JSX 1 448 388 bayt; juda kichik matn maydonida kesib saqlamang |
 
 `crypto.randomUUID()` secure context talab qiladi. [MDN](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID)
 
@@ -130,7 +135,7 @@ Bu kod iframe runnerida ishlaydi; `bridge` quyidagi host transportidir. Callback
 | --- | --- |
 | `classLevel` | `5`; 1–11 butun son. Hozir metadata, qiyinchilikni avtomatik almashtirmaydi |
 | `lang` | `"uz"`; boshqa til uchun `config.translations` kerak |
-| `config` | `{}`; oddiy rejimda embedded besh bosqich ishlaydi |
+| `config` | `{}`; oddiy rejimda embedded 20 bosqich ishlaydi |
 | `config.onEvent` | optional callback; analytics eventlari |
 | `config.edgeEvents` | `false`; true bo‘lsa kesma qo‘shish/o‘chirish eventlari |
 | `config.levels` | optional valid level array. Oddiy upload uchun berilmasin; fayldagi bosqichlar ishlasin |
@@ -236,7 +241,7 @@ Session qoidalari:
 
 **Bitta `onFinished` = bitta level.** Bu butun o‘yin yoki dars completed degani emas. O‘yin boshidan istalgan levelni tanlashga ruxsat beradi; “5-bosqich yakunlandi” ham oldingi to‘rttasi tugaganini bildirmaydi.
 
-LMS activity sozlamasida completionPolicy bo‘lsin. Ushbu pack uchun tavsiya: `requiredLevelIds = manifest.levelIds`; barcha besh level serverda completed bo‘lgach dars completed. Boshqa pedagogik talabda aniq subset yoki any-level siyosati alohida saqlanadi. Runtime bu siyosatni o‘zi taxmin qilmaydi.
+LMS activity sozlamasida completionPolicy bo‘lsin. Ushbu pack uchun tavsiya: `requiredLevelIds = manifest.levelIds`; barcha 20 level serverda completed bo‘lgach dars completed. Boshqa pedagogik talabda aniq subset yoki any-level siyosati alohida saqlanadi. Runtime bu siyosatni o‘zi taxmin qilmaydi. Oldingi besh bosqichli revisionni ishlatayotgan activity yangi revisionga o‘tganda requiredLevelIds siyosati ham ko‘rib chiqilsin; eski launch va natijalar o‘z revisionida qoladi.
 
 Har level uchun bestStars/bestScore saqlanishi mumkin. Rerun ballni yig‘ib cheksiz reward bermasin. Delivery idempotency kaliti: `(launchId, gameId, sessionId)`; event delivery uchun `(launchId, messageId)`. Mukofot idempotency kaliti siyosatga qarab `(studentId, activityId, revisionId, levelId)` yoki revisiondan mustaqil activity/level kaliti bo‘lsin. Qaysi biri tanlangani product qarori sifatida qayd etiladi.
 
@@ -281,7 +286,7 @@ CSS/animatsiya/mexanika/embedded levels o‘zgarishi va mavjud props/callbacklar
 - [ ] Preview va student runtime bir xil build/React/CSP/sandboxdan foydalanadi.
 - [ ] Iframe parent DOM/storagega kira olmaydi; runtime API tarmoqqa chiqmaydi; ruxsatsiz channel/xabarlar e’tiborsiz qoldiriladi.
 - [ ] Desktop va mobil o‘lchamlarda 3D, touch/keyboard, camera, material, undo/delete/reset, pause/resume, audio toggle va no-scroll ishlaydi.
-- [ ] Barcha besh level completed bo‘ladi; 4-level 139 material bilan 3 yulduz oladi.
+- [ ] Barcha 20 level completed bo‘ladi; 4-level 139 material bilan 3 yulduz oladi. Bosqich tanlashda to‘rt sahifa va 20-bosqichdan qaytish ishlaydi.
 - [ ] Bo‘sh/chala/tayanchsiz ko‘prikni sinash mumkin; zaif o‘rta/oxirgi kesma joyida qulaydi; Retry qurilishni saqlaydi.
 - [ ] Failure completion yozmaydi; success payload bir levelga tegishli; barcha required level yig‘ilmasdan dars completed bo‘lmaydi.
 - [ ] Callback → parent → durable outbox → backend → saqlandi holati tekshiriladi; offline/retry/duplicate/pending-exit holatlari sinovdan o‘tadi.
@@ -292,19 +297,19 @@ CSS/animatsiya/mexanika/embedded levels o‘zgarishi va mavjud props/callbacklar
 
 ## 12. Topshirilgan artifact tekshiruvi
 
-2026-11-16: “Quruvchilar ustaxonasi” UI bilan qayta eksport qilindi; callback va manifest kontrakti v1 saqlangan.
+2026-11-16: “Quruvchilar ustaxonasi” UI, 20 bosqich va sahifalangan tanlov bilan qayta eksport qilindi; kontent versiyasi 1.1.0, callback va manifest kontrakti v1 saqlangan.
 
-SHA-256: `c498a6301cb66e7783e9c66ac6c71ee21e8ee199fad1ee25ecc45f19ef446110`
+SHA-256: `448fd1bf326710231593187b81ba84af52286c0a43ab7f9d0272dd3ddfd4afcd`
 
-Hajm: **1 424 634 bayt**. Barcha qolgan importlar `react`; bitta JS/JSX chiqishi, external chunk/CSS/source-map yo‘q. Three.js MIT litsenziyasi fayl boshida saqlangan.
+Hajm: **1 448 388 bayt**. Barcha qolgan importlar `react`; bitta JS/JSX chiqishi, external chunk/CSS/source-map yo‘q. Three.js MIT litsenziyasi fayl boshida saqlangan.
 
 Mahalliy QA: haqiqiy eksport JSXdan React/ReactDOM bilan runner bundle qilindi; server faqat parent HTML, iframe HTML va runner JSni berdi. Iframe `sandbox="allow-scripts"`, `connect-src 'none'` bilan ishladi. Tekshiruv natijalari:
 
 - Artifact check o‘tdi: syntax/export/import, embedded content va bitta chiqish fayli tekshirildi; qayta eksportda checksum o‘zgarmadi.
-- **3/3 LMS browser ssenariysi o‘tdi:** barcha 5 level 3 yulduz bilan, 5 ta completion callback; xato oxirgi kesmada qulash → failed event → repair → success → exit callback; 360×800 LMS oynasida no-scroll va completion.
+- **3/3 LMS browser ssenariysi o‘tdi:** barcha 20 level 3 yulduz bilan, 20 ta completion callback; manifestda 20 ta ID va 1.1.0 versiya tasdiqlandi; xato oxirgi kesmada qulash → failed event → repair → success → exit callback; 360×800 LMS oynasida no-scroll va completion.
 - WebGL renderer ishladi, parent DOMga kirish bloklandi, tashqi runtime request kuzatilmadi: faqat parent HTML, iframe HTML va runner JS yuklandi. Runtime browser error kuzatilmadi.
 - Mobil va oxirgi kesmaning qulash screenshotlari ko‘rib chiqildi.
-- Mavjud source testlari **79/79**, ESLint, production build va JSX checksum tekshiruvi o‘tdi. Production builddagi katta bundle ogohlantirishi saqlanadi.
+- Mavjud source testlari **96/96**, asosiy browser ssenariylari **33/33**, ESLint, production build va JSX checksum tekshiruvi o‘tdi. Production builddagi katta bundle ogohlantirishi saqlanadi.
 - Mustaqil read-only review artifact va handoffda bloklovchi muammo topmadi.
 
 Live LMS, real auth/backend, durable outbox/ACK/reward va haqiqiy telefon tekshiruvi bajarilmagan. Ular 11-bo‘limdagi LMS qabul mezonlari bo‘yicha dev jamoa tomonidan tekshiriladi.

@@ -103,13 +103,14 @@ test("normal-motion partial bridge drives to the gap and falls", async ({
   ).toBeVisible();
   await expect(page.getByRole("dialog")).toContainText("Yo‘l uzilgan");
 });
-test("all five levels can be completed, replayed and selected", async ({
+test("all twenty levels can be completed, replayed and selected", async ({
   page,
 }) => {
+  test.setTimeout(180000);
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await start(page);
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 20; i++) {
     await connect(page, solutions[i]);
     if (i === 0)
       await page.screenshot({
@@ -118,11 +119,12 @@ test("all five levels can be completed, replayed and selected", async ({
       });
     await win(page);
     await expect(page.getByLabel("3 yulduz", { exact: true })).toBeVisible();
-    if (i < 4) {
+    if (i < 19) {
       await page.getByRole("button", { name: "Keyingi bosqich" }).click();
       await page.getByRole("button", { name: "Qurishni boshlash" }).click();
     }
   }
+  await expect(page.getByRole("button", { name: "Keyingi bosqich" })).toHaveCount(0);
   await page.getByRole("button", { name: "Yana o‘ynash" }).click();
   await page.getByRole("button", { name: "Qurishni boshlash" }).click();
   await expect(page.getByLabel("Material sarfi")).toContainText("0 / 205");

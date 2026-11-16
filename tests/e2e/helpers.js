@@ -39,6 +39,11 @@ export async function choose(page, index, title) {
     .getByRole("button", { name: "Bosqichlar", exact: true })
     .first()
     .click();
+  const previous = page.getByRole("button", { name: "Oldingi sahifa" });
+  while (await previous.isEnabled()) await previous.click();
+  for (let i = 0; i < Math.floor((index - 1) / 5); i++) {
+    await page.getByRole("button", { name: "Keyingi sahifa" }).click();
+  }
   await page
     .getByRole("button", { name: `${index}-bosqich: ${title}`, exact: true })
     .click();

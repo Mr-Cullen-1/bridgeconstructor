@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { parseAst } from "rolldown/parseAst";
 
@@ -16,12 +16,18 @@ const exported = ast.body.flatMap((node) => node.type === "ExportNamedDeclaratio
   ? node.specifiers.map((s) => s.exported.name) : []);
 assert(exported.includes("default"), "Default React component must be exported");
 assert(exported.includes("bridgeMasterManifest"), "Runtime manifest must be exported");
-for (const token of ["bridge-01", "bridge-02", "bridge-03", "bridge-04", "bridge-05", ".bridge-app", "WebGLRenderer", "collapseEdgeIds", "Permission is hereby granted"]) {
+const levelDirectory = new URL("../src/games/bridge-master/levels/", import.meta.url);
+const levelFiles = (await readdir(levelDirectory)).filter((name) => /^bridge-\d+\.json$/.test(name));
+const levelIds = await Promise.all(levelFiles.map(async (name) =>
+  JSON.parse(await readFile(new URL(name, levelDirectory), "utf8")).id,
+));
+for (const token of [...levelIds, ".bridge-app", "WebGLRenderer", "collapseEdgeIds", "Permission is hereby granted"]) {
   assert(source.includes(token), `Missing embedded game content/license: ${token}`);
 }
 console.log(JSON.stringify({
   file: "delivery/BridgeMaster.jsx",
   bytes: Buffer.byteLength(source),
+  levels: levelIds.length,
   sha256: createHash("sha256").update(source).digest("hex"),
   externalImports: imports.map((node) => node.source.value),
   exports: exported,

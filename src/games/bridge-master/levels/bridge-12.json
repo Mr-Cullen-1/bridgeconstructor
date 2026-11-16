@@ -1,0 +1,110 @@
+{
+  "id": "bridge-12",
+  "title": "Qurilishni davom ettir",
+  "subtitle": "Tayyor yo‘l qismlarini bir-biriga bog‘lang",
+  "difficulty": 12,
+  "budget": 180,
+  "parBudget": 160,
+  "costPerUnit": 0.1,
+  "stabilityThreshold": 0.85,
+  "threeStarStability": 0.9,
+  "startNodeId": "a",
+  "finishNodeId": "e",
+  "roadNodeIds": [
+    "a",
+    "b",
+    "c",
+    "d",
+    "e"
+  ],
+  "supportPolicy": "braced",
+  "nodes": [
+    {
+      "id": "a",
+      "x": 120,
+      "y": 280,
+      "type": "anchor"
+    },
+    {
+      "id": "b",
+      "x": 260,
+      "y": 280,
+      "type": "road"
+    },
+    {
+      "id": "c",
+      "x": 400,
+      "y": 280,
+      "type": "road"
+    },
+    {
+      "id": "d",
+      "x": 540,
+      "y": 280,
+      "type": "road"
+    },
+    {
+      "id": "e",
+      "x": 680,
+      "y": 280,
+      "type": "anchor"
+    },
+    {
+      "id": "f",
+      "x": 260,
+      "y": 100,
+      "type": "joint"
+    },
+    {
+      "id": "g",
+      "x": 540,
+      "y": 100,
+      "type": "joint"
+    }
+  ],
+  "fixedEdges": [
+    {
+      "id": "[\"a\",\"b\"]",
+      "fromNodeId": "a",
+      "toNodeId": "b",
+      "type": "road",
+      "length": 140,
+      "cost": 14,
+      "isPlayerBuilt": false
+    },
+    {
+      "id": "[\"d\",\"e\"]",
+      "fromNodeId": "d",
+      "toNodeId": "e",
+      "type": "road",
+      "length": 140,
+      "cost": 14,
+      "isPlayerBuilt": false
+    }
+  ],
+  "buildRules": {
+    "allowedEdgeTypes": [
+      "road",
+      "support"
+    ],
+    "maxEdgeLength": 280,
+    "allowDuplicateEdges": false
+  },
+  "stabilityConfig": {
+    "wC": 0.6,
+    "wT": 0.4,
+    "wU": 0.2,
+    "wV": 0.1,
+    "maxUnbracedSpan": 300
+  },
+  "scoreConfig": {
+    "base": 500,
+    "savingBonus": 250,
+    "stabilityBonus": 250
+  },
+  "vehicle": {
+    "speed": 140,
+    "width": 34,
+    "height": 20
+  }
+}

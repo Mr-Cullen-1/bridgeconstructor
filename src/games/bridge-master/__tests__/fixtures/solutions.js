@@ -1,3 +1,4 @@
+import { advancedSolutions } from "./advanced-solutions.js";
 const road = [
   ["a", "b"],
   ["b", "c"],
@@ -23,4 +24,5 @@ export const solutions = [
     ["e", "f", "support"],
   ],
   [...road, ...supports],
+  ...advancedSolutions,
 ];

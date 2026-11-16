@@ -84,6 +84,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
       }),
   });
   const levelIndex = levels.findIndex((l) => l.id === state.level.id);
+  const progressStart = Math.floor(levelIndex / 5) * 5;
   useEffect(() => {
     if (state.phase === "success")
       setScores((previous) => ({
@@ -215,12 +216,12 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
               </div>
               <p className="level-description">{state.level.subtitle}</p>
               <div className="level-progress" aria-label={t.levelProgress}>
-                {levels.map((level, index) => (
+                {levels.slice(progressStart, progressStart + 5).map((level, offset) => (
                   <span key={level.id}
-                    className={`${index === levelIndex ? "current" : ""} ${scores[level.id] ? "complete" : ""}`}
-                    aria-current={index === levelIndex ? "step" : undefined}
-                    aria-label={t.levelLabel(index + 1, level.title)}
-                  >{scores[level.id] ? <Icon name="check" size={12} /> : index + 1}</span>
+                    className={`${progressStart + offset === levelIndex ? "current" : ""} ${scores[level.id] ? "complete" : ""}`}
+                    aria-current={progressStart + offset === levelIndex ? "step" : undefined}
+                    aria-label={t.levelLabel(progressStart + offset + 1, level.title)}
+                  >{scores[level.id] ? <Icon name="check" size={12} /> : progressStart + offset + 1}</span>
                 ))}
               </div>
               <div className="budget" aria-label={t.materialLabel}>
