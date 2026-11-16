@@ -1,0 +1,3 @@
+# Preserve the exact generated upload bytes and its published SHA-256 on checkout.
+# Embedded third-party comments retain upstream trailing whitespace.
+delivery/BridgeMaster.jsx -text whitespace=-blank-at-eol

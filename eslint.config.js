@@ -6,6 +6,7 @@ export default [
     ignores: [
       "node_modules/**",
       "dist/**",
+      "delivery/BridgeMaster.jsx",
       ".tools/**",
       ".superpowers/**",
       "output/**",
@@ -16,7 +17,7 @@ export default [
   },
   js.configs.recommended,
   {
-    files: ["**/*.{js,jsx}"],
+    files: ["**/*.{js,jsx,mjs}"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",

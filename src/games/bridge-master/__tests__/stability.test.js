@@ -1,8 +1,10 @@
 import { expect, it } from "vitest";
 import tutorial from "../levels/bridge-01.json";
+import levelThree from "../levels/bridge-03.json";
+import { solutions } from "./fixtures/solutions.js";
 import { createEdge } from "../engine/buildRules.js";
 import { calculateStability } from "../engine/stability.js";
-import { createTestRun, getSimulationOutcome } from "../engine/simulation.js";
+import { createTestRun, getSimulationOutcome, getVehiclePose } from "../engine/simulation.js";
 import { calculateStars, calculateScore } from "../engine/scoring.js";
 
 it("rejects a duplicate fixed edge substituted for a required fixed segment", () => {
@@ -98,6 +100,35 @@ const strong = make(braced, [
   ["b", "f", "support"],
   ["e", "f", "support"],
 ]);
+it("crosses the supported first span and collapses the unbraced second span", () => {
+  const run = createTestRun(braced, weak);
+  expect(run.outcome.weakEdgeId).toBe('["b","e"]');
+  expect(run.failureAtMs).toBe(3000);
+  expect(getVehiclePose(run, run.failureAtMs / run.durationMs).x).toBe(540);
+  expect(run.outcome.collapseEdgeIds).toEqual(['["b","e"]']);
+});
+it.each([
+  ["b", '["a","b"]', 190],
+  ["c", '["b","c"]', 330],
+  ["e", '["d","e"]', 610],
+])("failure follows the missing %s support, including near the finish", (node, edgeId, x) => {
+  const edges = make(levelThree, solutions[2]).filter(
+    (e) => !(e.type === "support" && [e.fromNodeId, e.toNodeId].includes(node)),
+  );
+  const run = createTestRun(levelThree, edges);
+  expect(run.outcome.status).toBe("failed");
+  expect(run.outcome.weakEdgeId).toBe(edgeId);
+  expect(getVehiclePose(run, run.failureAtMs / run.durationMs).x).toBeCloseTo(x);
+  const reversed = [...edges].reverse().map((e) => ({
+    ...e, fromNodeId: e.toNodeId, toNodeId: e.fromNodeId,
+  }));
+  expect(createTestRun(levelThree, reversed)).toEqual(run);
+});
+it("collapses the whole unsupported road but leaves a strong bridge intact", () => {
+  const roadOnly = make(levelThree, solutions[2].filter(([, , type]) => type !== "support"));
+  expect(createTestRun(levelThree, roadOnly).outcome.collapseEdgeIds).toEqual(roadOnly.map((e) => e.id));
+  expect(createTestRun(braced, strong).outcome.collapseEdgeIds).toEqual([]);
+});
 it("simulates discontinuous road and missing bracing as failed attempts", () => {
   expect(getSimulationOutcome(braced, [])).toMatchObject({
     valid: true,

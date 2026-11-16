@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-export default function Modal({ title, children, className = "" }) {
+export default function Modal({ title, children, className = "", eyebrow }) {
   const ref = useRef(null);
   useEffect(() => {
     const previous = document.activeElement;
@@ -30,6 +30,7 @@ export default function Modal({ title, children, className = "" }) {
         className={`modal ${className}`}
         onKeyDown={trap}
       >
+        {eyebrow && <span className="modal-eyebrow">{eyebrow}</span>}
         <h2>{title}</h2>
         {children}
       </section>

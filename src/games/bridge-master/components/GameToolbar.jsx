@@ -3,6 +3,7 @@ export default function GameToolbar({ state, dispatch, t, tutorialTestReady, hin
   const locked = state.phase !== "building";
   return (
     <div className="toolbar">
+      <span className="section-label tool-heading">{t.buildTools}</span>
       <div className="tool-materials" aria-label={t.material}>
         {["road", "support"].map((type) => (
           <button
@@ -11,9 +12,11 @@ export default function GameToolbar({ state, dispatch, t, tutorialTestReady, hin
             disabled={locked}
             onClick={() => dispatch({ type: "SET_EDGE_TYPE", edgeType: type })}
             aria-pressed={state.activeEdgeType === type}
+            aria-label={t[type]}
           >
             <Icon name={type} />
-            <span>{t[type]}</span>
+            <span>{t[type]}<small>{t.toolDescriptions[type]}</small></span>
+            {state.activeEdgeType === type && <Icon name="check" size={15} className="material-check" />}
           </button>
         ))}
       </div>
@@ -32,6 +35,7 @@ export default function GameToolbar({ state, dispatch, t, tutorialTestReady, hin
             onClick={() => dispatch({ type })}
           >
             <Icon name={key === "remove" ? "trash" : key} />
+            <span>{t.toolShort[key]}</span>
           </button>
         ))}
       </div>

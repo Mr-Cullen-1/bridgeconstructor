@@ -144,8 +144,11 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
               : 0)
         ]
       : null;
+  const levelHint = t.levelHints?.[state.level.id];
   const hint = state.message
-    ? t.messages[state.message]
+    ? [t.messages[state.message], state.message === "budget" && levelHint]
+        .filter(Boolean)
+        .join(" ")
     : state.phase === "testing"
       ? t.testing
       : state.selectedNodeId
@@ -153,7 +156,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
         : state.selectedEdgeId
           ? t.selectedEdge
           : state.level.difficulty > 1
-            ? t.hintSupport
+            ? levelHint || t.hintSupport
             : state.playerEdges.length >= 4
               ? t.hintTest
               : state.playerEdges.length
@@ -172,14 +175,32 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
               <small>{t.academy}</small>
             </span>
           </a>
-          <div className="edition">{t.edition}</div>
+          <div className="edition"><span />{t.workshop}</div>
+          <div className="header-actions">
+            <button
+              className="icon-button"
+              aria-label={sound ? t.soundOff : t.soundOn}
+              onClick={toggleSound}
+            >
+              <Icon name={sound ? "sound" : "muted"} />
+            </button>
+            <button
+              className="icon-button"
+              aria-label={t.pause}
+              disabled={!["building", "testing"].includes(state.phase)}
+              onClick={() => dispatch({ type: "PAUSE" })}
+            >
+              <Icon name="pause" />
+            </button>
           <button className="header-levels" onClick={selectLevels}>
             <Icon name="grid" />
             {t.levels}
           </button>
+          </div>
         </header>
         <div className="game-content">
           <section className="game-card" aria-label={t.brand}>
+            <aside className="control-panel" aria-label={t.workshop}>
             <div className="game-header">
               <div className="level-title">
                 <span className="level-number">
@@ -189,12 +210,22 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
                   <span className="eyebrow">
                     {t.level} {levelIndex + 1} / {levels.length}
                   </span>
-                  <h2>{state.level.title}</h2>
+                  <h1>{state.level.title}</h1>
                 </div>
+              </div>
+              <p className="level-description">{state.level.subtitle}</p>
+              <div className="level-progress" aria-label={t.levelProgress}>
+                {levels.map((level, index) => (
+                  <span key={level.id}
+                    className={`${index === levelIndex ? "current" : ""} ${scores[level.id] ? "complete" : ""}`}
+                    aria-current={index === levelIndex ? "step" : undefined}
+                    aria-label={t.levelLabel(index + 1, level.title)}
+                  >{scores[level.id] ? <Icon name="check" size={12} /> : index + 1}</span>
+                ))}
               </div>
               <div className="budget" aria-label={t.materialLabel}>
                 <div>
-                  <span>{t.material}</span>
+                  <span><Icon name="bridge" size={16} />{t.material}</span>
                   <strong>
                     {derived.budgetUsed} / {state.level.budget}
                   </strong>
@@ -206,24 +237,27 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
                     }}
                   />
                 </div>
+                <div className="budget-footnote"><span>{t.remaining}</span><b>{state.level.budget - derived.budgetUsed}</b></div>
               </div>
-              <div className="header-tools">
-                <button
-                  className="icon-button"
-                  aria-label={sound ? t.soundOff : t.soundOn}
-                  onClick={toggleSound}
-                >
-                  <Icon name={sound ? "sound" : "muted"} />
-                </button>
-                <button
-                  className="icon-button"
-                  aria-label={t.pause}
-                  disabled={!["building", "testing"].includes(state.phase)}
-                  onClick={() => dispatch({ type: "PAUSE" })}
-                >
-                  <Icon name="pause" />
-                </button>
-              </div>
+            </div>
+            <div className="construction-note">
+              <span className="section-label">{t.yourGoal}</span>
+              <p>{t.goalBody}</p>
+              <span className="goal-target"><Icon name="star" size={16} />{t.target}: ≤ {state.level.parBudget}</span>
+            </div>
+            <GameToolbar
+              state={state}
+              dispatch={dispatch}
+              t={t}
+              tutorialTestReady={tutorialTestReady}
+              hintId={hintId}
+            />
+            <p className="keyboard-note">{t.keyboardHint}</p>
+            </aside>
+            <div className="scene-panel">
+            <div className="scene-heading">
+              <span><Icon name="flag" size={16} />{t.sceneTitle}</span>
+              <span>{t.sceneDetail}</span>
             </div>
             <BridgeScene
               state={state}
@@ -232,6 +266,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
               t={t}
               pose={simulation.vehiclePose}
               broken={simulation.broken}
+              collapseSeconds={simulation.collapseSeconds}
               countdown={simulation.countdown}
               tutorialNodeId={tutorialNodeId}
               hintId={hintId}
@@ -245,18 +280,12 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
               <span className="hint-icon">
                 <Icon name="bulb" size={18} />
               </span>
-              <span>{hint}</span>
+              <span><b className="hint-label">{state.message ? t.buildFeedback : t.nextStep}</b>{hint}</span>
               <span className="hint-counter">
                 {t.target}: ≤ {state.level.parBudget}
               </span>
             </div>
-            <GameToolbar
-              state={state}
-              dispatch={dispatch}
-              t={t}
-              tutorialTestReady={tutorialTestReady}
-              hintId={hintId}
-            />
+            </div>
           </section>
         </div>
       </div>
@@ -266,6 +295,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
             state.level.difficulty === 1 ? t.introTitle : state.level.title
           }
           className="intro-modal"
+          eyebrow={t.adventureStart}
         >
           <span className="modal-symbol">
             <Icon name="bridge" size={42} />
@@ -273,6 +303,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
           <p>
             {state.level.difficulty === 1 ? t.introBody : state.level.subtitle}
           </p>
+          {levelHint && <p>{levelHint}</p>}
           <ol className="intro-steps">
             {t.introSteps.map((step, i) => (
               <li key={step}>
@@ -291,7 +322,8 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
         </Modal>
       )}
       {!showLevels && !exited && state.phase === "paused" && (
-        <Modal title={t.paused}>
+        <Modal title={t.paused} eyebrow={t.pause} className="pause-modal">
+          <span className="modal-symbol"><Icon name="pause" size={32} /></span>
           <p>{t.pausedBody}</p>
           <div className="modal-actions">
             <button
@@ -329,6 +361,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
           levels={levels}
           t={t}
           scores={scores}
+          currentLevelId={state.level.id}
           onSelect={loadLevel}
           onClose={() => {
             setShowLevels(false);
@@ -337,7 +370,7 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
         />
       )}
       {exited && (
-        <Modal title={t.exited}>
+        <Modal title={t.exited} eyebrow={t.brand}>
           <p>{t.exitBody}</p>
           <button className="primary" onClick={() => loadLevel(state.level)}>
             {t.back}

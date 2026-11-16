@@ -1,4 +1,4 @@
-import { findPath, getEdgeKey, compare } from "./graph.js";
+import { findPath, getEdgeKey } from "./graph.js";
 import { calculateEdgeLength } from "./budget.js";
 
 const clamp = (n) => Math.max(0, Math.min(1, n));
@@ -59,12 +59,15 @@ export function calculateTriangulationScore(nodes, edges) {
       }
   return triangles;
 }
-export function calculateUnsupportedSpanPenalty(level, edges) {
+export function calculateUnsupportedSpanPenalty(
+  level,
+  edges,
+  path = roadPath(level, edges) ?? [],
+) {
   if (level.supportPolicy === "connected") return 0;
-  const path = roadPath(level, edges) ?? [],
-    inner = path.filter(
-      (id) => level.nodes.find((n) => n.id === id).type !== "anchor",
-    );
+  const inner = path.filter(
+    (id) => level.nodes.find((n) => n.id === id).type !== "anchor",
+  );
   if (!inner.length) return 0;
   const supports = edges.filter((e) => e.type === "support");
   return (
@@ -83,8 +86,7 @@ export function calculateUnsupportedSpanPenalty(level, edges) {
     ).length / inner.length
   );
 }
-function metrics(level, edges) {
-  const path = roadPath(level, edges) ?? [];
+function metrics(level, edges, path = roadPath(level, edges) ?? []) {
   if (!path.length)
     return {
       score: 0,
@@ -103,7 +105,9 @@ function metrics(level, edges) {
         triangles.some((t) => t.includes(id) && t.includes(path[i])),
       ).length /
     (path.length - 1);
-  const unsupportedSpanPenalty = calculateUnsupportedSpanPenalty(level, edges);
+  const unsupportedSpanPenalty = calculateUnsupportedSpanPenalty(
+    level, edges, path,
+  );
   const inner = path.filter(
       (id) => level.nodes.find((n) => n.id === id).type !== "anchor",
     ),
@@ -145,18 +149,26 @@ function metrics(level, edges) {
 }
 export function calculateStability(level, edges) {
   const result = metrics(level, edges);
-  const candidates = edges
-    .filter((e) => e.isPlayerBuilt)
-    .map((e) => ({
-      id: e.id,
-      key: getEdgeKey(e.fromNodeId, e.toNodeId),
-      loss:
-        result.score -
-        metrics(
-          level,
-          edges.filter((other) => other.id !== e.id),
-        ).score,
-    }));
-  candidates.sort((a, b) => b.loss - a.loss || compare(a.key, b.key));
-  return { ...result, weakEdgeId: candidates[0]?.id ?? null };
+  const path = roadPath(level, edges) ?? [];
+  // Assess the load-bearing spans in travel order. Removing any road breaks
+  // continuity, so removal impact cannot distinguish a sound span from a weak one.
+  const spans = path.slice(1).map((id, i) => ({
+    id: getEdgeKey(path[i], id),
+    ...metrics(level, edges, [path[i], id]),
+  }));
+  const unstable = spans.filter(
+    (span) =>
+      span.score < level.stabilityThreshold || span.unsupportedSpanPenalty > 0,
+  );
+  const weakest =
+    unstable[0] ??
+    spans.reduce(
+      (best, span) => (!best || span.score < best.score ? span : best),
+      null,
+    );
+  return {
+    ...result,
+    weakEdgeId: weakest?.id ?? null,
+    unstableEdgeIds: unstable.map((span) => span.id),
+  };
 }

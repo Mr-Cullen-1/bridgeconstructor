@@ -1,6 +1,58 @@
 import { test, expect } from "@playwright/test";
 import { solutions } from "../../src/games/bridge-master/__tests__/fixtures/solutions.js";
 import { connect, start, win, choose } from "./helpers.js";
+for (const [missing, collapsed, x] of [
+  ["c", ['["b","c"]', '["c","d"]'], -2],
+  ["e", ['["d","e"]'], 6],
+]) {
+  test(`collapse follows missing ${missing} support instead of the first span`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await start(page);
+    await choose(page, 3, "Uchburchak siri");
+    await connect(page, solutions[2].filter(([a, b, type]) =>
+      !(type === "support" && [a, b].includes(missing)),
+    ));
+    await page.getByRole("button", { name: "Ko‘prikni sinash" }).click();
+    const canvas = page.locator(".world-canvas");
+    await expect(canvas).toHaveAttribute("data-collapsed-edges", JSON.stringify(collapsed));
+    expect(Number(await canvas.getAttribute("data-vehicle-x"))).toBeCloseTo(x);
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: `output/playwright/collapse-missing-${missing}.png` });
+    await expect(page.getByRole("dialog", { name: "Yana bir yechim bor!" })).toBeVisible();
+    await page.getByRole("button", { name: "Ko‘prikni yaxshilash" }).click();
+    await expect(canvas).toHaveAttribute("data-collapsed-edges", "[]");
+    await connect(page, [[missing, "f", "support"]]);
+    await win(page);
+  });
+}
+test("an unsupported bridge collapses all road spans and retry restores them", async ({ page }) => {
+  await start(page);
+  await choose(page, 3, "Uchburchak siri");
+  await connect(page, solutions[2].filter(([, , type]) => type !== "support"));
+  await page.getByRole("button", { name: "Ko‘prikni sinash" }).click();
+  await expect(page.getByRole("dialog", { name: "Yana bir yechim bor!" })).toBeVisible();
+  const canvas = page.locator(".world-canvas");
+  await expect(canvas).toHaveAttribute("data-collapsed-edges", JSON.stringify([
+    '["a","b"]', '["b","c"]', '["c","d"]', '["d","e"]',
+  ]));
+  await page.getByRole("button", { name: "Ko‘prikni yaxshilash" }).click();
+  await expect(canvas).toHaveAttribute("data-collapsed-edges", "[]");
+});
+test("level four explains optional nodes and completes within its budget", async ({ page }) => {
+  await start(page);
+  await page.getByRole("button", { name: "Bosqichlar", exact: true }).click();
+  await page.getByRole("button", { name: "4-bosqich: Oqilona quruvchi", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("B va D nuqtalaridan foydalanish shart emas");
+  await page.getByRole("button", { name: "Qurishni boshlash" }).click();
+  await expect(page.getByRole("status")).toContainText("B va D");
+  await connect(page, solutions[3]);
+  await expect(page.getByLabel("Material sarfi")).toContainText("139 / 150");
+  await page.screenshot({ path: "output/playwright/level-four-solution.png" });
+  await win(page);
+  await expect(page.getByLabel("3 yulduz", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Keyingi bosqich" }).click();
+  await expect(page.getByRole("dialog")).toHaveAccessibleName("Yangi cho‘qqilar");
+});
 test("empty, incomplete and unsupported bridges can be tested and repaired", async ({
   page,
 }) => {
@@ -126,6 +178,7 @@ test("keyboard, delete, undo, reset, budget and sound controls work", async ({
     ["d", "f", "support"],
   ]);
   await expect(page.getByRole("status")).toContainText("Material yetmaydi");
+  await expect(page.getByRole("status")).toContainText("B va D");
   await expect(page.getByLabel("Material sarfi")).toContainText("129 / 150");
 });
 test("pause freezes an active test and resumes through success", async ({

@@ -73,3 +73,22 @@ it("reduced motion shortens presentation without changing outcome", () => {
   expect(onComplete).toHaveBeenCalledTimes(1);
   expect(run.outcome.status).toBe("completed");
 });
+it("reaches a late weak span before falling and freezes the collapse on pause", () => {
+  const lateFailure = { ...run, failureAtMs: 3500, outcome: { status: "failed" } };
+  const onComplete = vi.fn();
+  const { result, rerender } = renderHook(
+    ({ phase }) => useSimulation({ run: lateFailure, phase, onComplete }),
+    { initialProps: { phase: "testing" } },
+  );
+  frame(0);
+  frame(6400);
+  expect(result.current.broken).toBe(false);
+  frame(6700);
+  expect(result.current.broken).toBe(true);
+  expect(result.current.vehiclePose.x).toBe(87.5);
+  expect(result.current.collapseSeconds).toBeCloseTo(0.2);
+  rerender({ phase: "paused" });
+  frame(50000);
+  expect(result.current.collapseSeconds).toBeCloseTo(0.2);
+  expect(onComplete).not.toHaveBeenCalled();
+});

@@ -5,6 +5,11 @@ import { solutions } from "../../src/games/bridge-master/__tests__/fixtures/solu
 for (const viewport of [
   { width: 1366, height: 768 },
   { width: 1920, height: 1080 },
+  { width: 1024, height: 600 },
+  { width: 1024, height: 551 },
+  { width: 1024, height: 701 },
+  { width: 1024, height: 741 },
+  { width: 768, height: 1024 },
   { width: 360, height: 800 },
   { width: 390, height: 844 },
   { width: 320, height: 568 },
@@ -31,6 +36,12 @@ for (const viewport of [
     await expect(page.locator('canvas[data-renderer="webgl"]')).toBeVisible();
     const toolbar = await page.locator(".toolbar").boundingBox();
     expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(viewport.height);
+    for (const button of await page.locator(".toolbar button").all()) {
+      const bounds = await button.boundingBox();
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+    }
     const scene = await page.locator(".scene-wrap").boundingBox();
     expect(scene.height).toBeGreaterThanOrEqual(viewport.height * 0.42);
     await connect(page, solutions[0]);

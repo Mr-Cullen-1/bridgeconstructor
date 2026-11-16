@@ -12,7 +12,7 @@ export default function ResultModal({
 }) {
   const success = result.status === "completed";
   return (
-    <Modal title={success ? t.success : t.failed} className="result-modal">
+    <Modal title={success ? t.success : t.failed} eyebrow={success ? t.levelComplete : t.tryAgain} className={`result-modal ${success ? "result-success" : "result-failed"}`}>
       <div className="stars" aria-label={t.stars(result.stars)}>
         {[1, 2, 3].map((n) => (
           <Icon
@@ -42,6 +42,7 @@ export default function ResultModal({
           <span>{t.stability}</span>
         </div>
       </div>
+      <p className="attempt-summary">{t.attempts}: <b>{result.attempts}</b> · {t.activeTime}: <b>{result.durationSeconds} {t.seconds}</b></p>
       <div className="modal-actions">
         {success ? (
           <>
@@ -59,9 +60,7 @@ export default function ResultModal({
             <Icon name="reset" />
           </button>
         )}
-        <button className="secondary" onClick={onSelect}>
-          {t.levels}
-        </button>
+        {(!success || !isLast) && <button className="text-button" onClick={onSelect}>{t.levels}</button>}
       </div>
     </Modal>
   );

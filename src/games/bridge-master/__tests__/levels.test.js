@@ -10,6 +10,22 @@ it("ships five unique levels", () => {
   expect(levels).toHaveLength(5);
   expect(new Set(levels.map((l) => l.id)).size).toBe(5);
 });
+it("level four saves support material by skipping optional road nodes", () => {
+  const level = levels[3];
+  const edges = solutions[3].map(([a, b, type = "road"]) =>
+    createEdge(level, level.nodes.find((n) => n.id === a), level.nodes.find((n) => n.id === b), type),
+  );
+  expect(calculateTotalCost(edges)).toBe(139);
+  expect(getSimulationOutcome(level, edges)).toMatchObject({
+    status: "completed",
+    stabilityScore: 0.9,
+  });
+  const previousSolution = solutions[2].map(([a, b, type = "road"]) =>
+    createEdge(level, level.nodes.find((n) => n.id === a), level.nodes.find((n) => n.id === b), type),
+  );
+  expect(calculateTotalCost(previousSolution)).toBe(185);
+  expect(calculateTotalCost(previousSolution)).toBeGreaterThan(level.budget);
+});
 it.each([0, 1, 2, 3, 4])(
   "level %i has an affordable three-star solution and a useful weak bridge",
   (index) => {

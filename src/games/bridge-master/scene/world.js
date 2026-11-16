@@ -342,6 +342,11 @@ export function createWorld(canvas, level) {
         for (const z of [-1.18, 1.18])
           beam(group, worldPoint(a, z), worldPoint(b, z), 0.2, 0.2, color);
       }
+      // Rotate falling spans about their own center, not the scene origin.
+      const origin = worldPoint(a, 0).lerp(worldPoint(b, 0), 0.5);
+      group.children.forEach((child) => child.position.sub(origin));
+      group.position.copy(origin);
+      group.userData.origin = origin;
       debris.set(edge.id, group);
     }
     for (const n of level.nodes) {
@@ -370,7 +375,6 @@ export function createWorld(canvas, level) {
   }
   let camera,
     previousPose = null,
-    failureTime = 0,
     elapsed = 0;
   function resize(nextCamera, width, height) {
     camera = nextCamera;
@@ -399,8 +403,7 @@ export function createWorld(canvas, level) {
     }
     const pose = frame.pose ?? { x: start.x - 48, y: start.y, angle: 0 };
     const p = worldPoint(pose, 0);
-    if (frame.broken && animate) failureTime = Math.min(0.8, failureTime + dt);
-    else if (!frame.broken) failureTime = 0;
+    const failureTime = frame.broken ? frame.collapseSeconds : 0;
     truck.position.set(p.x, p.y + 0.1 - failureTime * failureTime * 7, 0);
     truck.rotation.z = (-pose.angle * Math.PI) / 180 - failureTime * 0.65;
     if (previousPose && animate && frame.phase === "testing") {
@@ -410,11 +413,17 @@ export function createWorld(canvas, level) {
       });
     }
     previousPose = p;
+    const collapsed = [];
     debris.forEach((g, id) => {
-      const weak = frame.broken && id === frame.weakEdgeId;
-      g.position.y = weak ? -failureTime * failureTime * 5 : 0;
-      g.rotation.z = weak ? failureTime * 0.2 : 0;
+      const weak = frame.broken && frame.collapseEdgeIds.includes(id);
+      g.position.copy(g.userData.origin);
+      if (weak) g.position.y -= failureTime * failureTime * 7;
+      g.rotation.z = weak ? -failureTime * 0.65 : 0;
+      if (g.position.y < g.userData.origin.y) collapsed.push(id);
     });
+    // Renderer diagnostics also allow browser QA to verify actual mesh motion.
+    canvas.dataset.collapsedEdges = JSON.stringify(collapsed);
+    canvas.dataset.vehicleX = String(truck.position.x);
     if (camera) renderer.render(scene, camera);
   }
   function dispose() {

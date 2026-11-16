@@ -10,6 +10,7 @@ export default function BridgeScene({
   t,
   pose,
   broken = false,
+  collapseSeconds = 0,
   countdown = 0,
   tutorialNodeId,
   hintId,
@@ -97,12 +98,13 @@ export default function BridgeScene({
     frame.current = {
       pose,
       broken,
+      collapseSeconds,
       phase: state.phase,
       reducedMotion,
-      weakEdgeId: state.run?.outcome.weakEdgeId,
+      collapseEdgeIds: state.run?.outcome.collapseEdgeIds ?? [],
     };
     world.current?.render(frame.current);
-  }, [pose, broken, state.phase, reducedMotion, state.run]);
+  }, [pose, broken, collapseSeconds, state.phase, reducedMotion, state.run]);
   useEffect(() => {
     world.current?.resize(camera, size.width, size.height);
     world.current?.render(frame.current);

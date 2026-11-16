@@ -55,6 +55,9 @@ export function useSimulation({
   const progress = travelMs
     ? Math.max(0, Math.min(limit, (elapsedMs - countdownMs) / travelMs))
     : 0;
+  const broken =
+    !!run && run.outcome.status === "failed" &&
+    elapsedMs >= countdownMs + travelMs * failureProgress;
   return {
     elapsedMs,
     progress,
@@ -63,9 +66,11 @@ export function useSimulation({
       run && phase === "testing"
         ? Math.max(0, Math.ceil((countdownMs - elapsedMs) / 1000))
         : 0,
-    broken:
-      !!run &&
-      run.outcome.status === "failed" &&
-      elapsedMs >= countdownMs + travelMs * failureProgress,
+    broken,
+    collapseSeconds: broken
+      ? reducedMotion
+        ? 0.7
+        : Math.min(0.7, (elapsedMs - countdownMs - travelMs * failureProgress) / 1000)
+      : 0,
   };
 }

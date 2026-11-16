@@ -14,6 +14,7 @@ const invalid = (reasonCode) => ({
   reasonCode,
   stabilityScore: 0,
   weakEdgeId: null,
+  collapseEdgeIds: [],
 });
 function normalizeGraph(level, edges) {
   if (!validateLevel(level).valid) return { reasonCode: "invalidConfig" };
@@ -75,15 +76,18 @@ function evaluateGraph(level, graph) {
   if (!road.valid) return { ...invalid(road.reasonCode), valid: true };
   const anchor = validateAnchorConnectivity(level, normalized);
   const stability = calculateStability(level, normalized);
+  const failed = !anchor.valid || stability.score < level.stabilityThreshold;
   return {
     valid: true,
-    status:
-      anchor.valid && stability.score >= level.stabilityThreshold
-        ? "completed"
-        : "failed",
+    status: failed ? "failed" : "completed",
     reasonCode: anchor.reasonCode,
     stabilityScore: stability.score,
     weakEdgeId: stability.weakEdgeId,
+    collapseEdgeIds: failed
+      ? stability.unstableEdgeIds.length
+        ? stability.unstableEdgeIds
+        : [stability.weakEdgeId].filter(Boolean)
+      : [],
   };
 }
 export function getSimulationOutcome(level, edges) {
@@ -135,27 +139,16 @@ export function createTestRun(level, edges) {
   );
   const durationMs =
     (distances.reduce((a, b) => a + b, 0) / level.vehicle.speed) * 1000;
-  const weak = graph.edges.find((e) => e.id === outcome.weakEdgeId);
   let failureAtMs =
     outcome.reasonCode === "roadGap" ? durationMs : durationMs * 0.5;
-  if (weak) {
-    const a = getNodeById(level.nodes, weak.fromNodeId),
-      b = getNodeById(level.nodes, weak.toNodeId),
-      mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    let index = 0;
-    path.forEach((n, i) => {
-      if (calculateEdgeLength(n, mid) < calculateEdgeLength(path[index], mid))
-        index = i;
-    });
-    failureAtMs = Math.max(
-      durationMs * 0.2,
-      Math.min(
-        durationMs * 0.85,
-        (distances.slice(0, index + 1).reduce((x, y) => x + y, 0) /
-          level.vehicle.speed) *
-          1000,
-      ),
-    );
+  const index = path.findIndex((node, i) =>
+    i > 0 && getEdgeKey(path[i - 1].id, node.id) === outcome.weakEdgeId,
+  );
+  if (index > 0) {
+    // Trigger under the vehicle at the weak span's midpoint, even near the finish.
+    const distance = distances.slice(0, index).reduce((sum, n) => sum + n, 0)
+      + distances[index] / 2;
+    failureAtMs = distance / level.vehicle.speed * 1000;
   }
   return { outcome, path, durationMs, failureAtMs };
 }
