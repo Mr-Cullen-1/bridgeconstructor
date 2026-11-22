@@ -16,6 +16,7 @@ import Icon from "./components/Icon.jsx";
 import ResultModal from "./components/ResultModal.jsx";
 import LevelSelect from "./components/LevelSelect.jsx";
 import IntroModal from "./components/IntroModal.jsx";
+import { robotWave } from "./assets/introAssets.js";
 import { SaveChip, SaveLine, SavePanel } from "./components/SaveStatus.jsx";
 import "./styles/bridge-master.css";
 
@@ -96,14 +97,14 @@ function Game({
     [showSave, setShowSave] = useState(false),
     [exited, setExited] = useState(false),
     [localScores, setScores] = useState({});
-  const { sound, toggleSound, reducedMotion, beep } = usePreferences();
+  const { sound, toggleSound, reducedMotion, play } = usePreferences();
   const {
     state,
     dispatch: rawDispatch,
     derived,
   } = useBridgeGame({ level: levels[0], classLevel });
   const dispatch = (action) => {
-    beep();
+    play(action.type === "UNDO" || action.type === "REMOVE_EDGE" || action.type === "RESET_BRIDGE" ? "undo" : action.type === "SELECT_NODE" || action.type === "SELECT_EDGE" ? "select" : "click");
     rawDispatch(action);
   };
   const adapter = useLmsEvents(state, {
@@ -124,6 +125,30 @@ function Game({
         completedAt: new Date().toISOString(),
       }),
   });
+  // Sound effects follow what actually happened in the game, not just which button was pressed.
+  const heard = useRef({ edges: 0, message: null, phase: state.phase, countdown: 0, broken: false });
+  useEffect(() => {
+    const before = heard.current;
+    if (state.playerEdges.length > before.edges) play("place");
+    if (state.message && state.message !== before.message) play("error");
+    if (state.phase === "success" && before.phase !== "success") play("success");
+    if (simulation.countdown > 0 && simulation.countdown !== before.countdown) play("tick");
+    if (before.countdown > 0 && simulation.countdown === 0 && state.phase === "testing") {
+      play("go");
+      setTimeout(() => play("honk"), 120);
+    }
+    if (simulation.broken && !before.broken) {
+      play("crash");
+      setTimeout(() => play("splash"), 700);
+    }
+    heard.current = {
+      edges: state.playerEdges.length,
+      message: state.message,
+      phase: state.phase,
+      countdown: simulation.countdown,
+      broken: simulation.broken,
+    };
+  }, [state.playerEdges.length, state.message, state.phase, simulation.countdown, simulation.broken, play]);
   const levelIndex = levels.findIndex((l) => l.id === state.level.id);
   const progressStart = Math.floor(levelIndex / 5) * 5;
   useEffect(() => {
@@ -210,6 +235,7 @@ function Game({
               : 0)
         ]
       : null;
+  const materialLeft = state.level.budget - derived.budgetUsed;
   const levelHint = t.levelHints?.[state.level.id];
   const names = levelText(state.level, t);
   const hint = state.message
@@ -237,138 +263,121 @@ function Game({
       {...input}
     >
       <div className="game-shell" ref={shell}>
-        <header className="site-header">
-          <a className="brand" href="./">
-            <span className="brand-icon">
-              <Icon name="bridge" size={29} />
-            </span>
-            <span>
-              {t.brand}
-              <small>{t.academy}</small>
-            </span>
-          </a>
-          <div className="edition"><span />{t.workshop}</div>
-          <div className="header-actions">
-            {reporting.enabled && (
-              <SaveChip
-                attempts={reporting.attempts}
-                saveState={saveState}
-                t={t}
-                onRetrySave={onRetrySave}
-                onOpen={openSave}
-              />
-            )}
-            <button
-              className="icon-button"
-              aria-label={sound ? t.soundOff : t.soundOn}
-              onClick={toggleSound}
-            >
-              <Icon name={sound ? "sound" : "muted"} />
-            </button>
-            <button
-              className="icon-button"
-              aria-label={t.pause}
-              disabled={!["building", "testing"].includes(state.phase)}
-              onClick={() => dispatch({ type: "PAUSE" })}
-            >
-              <Icon name="pause" />
-            </button>
-          <button className="header-levels" onClick={selectLevels}>
-            <Icon name="grid" />
-            {t.levels}
-          </button>
-          </div>
-        </header>
-        <div className="game-content">
-          <section className="game-card" aria-label={t.brand}>
-            <aside className="control-panel" aria-label={t.workshop}>
-            <div className="game-header">
-              <div className="level-title">
-                <span className="level-number">
-                  {String(levelIndex + 1).padStart(2, "0")}
+        <BridgeScene
+          state={state}
+          edges={derived.edges}
+          dispatch={dispatch}
+          t={t}
+          pose={simulation.vehiclePose}
+          broken={simulation.broken}
+          collapseSeconds={simulation.collapseSeconds}
+          countdown={simulation.countdown}
+          tutorialNodeId={tutorialNodeId}
+          hintId={hintId}
+          reducedMotion={reducedMotion}
+          hudTop={
+            <>
+              <div className="hud-left">
+                <button type="button" className="hud-btn hud-levels" onClick={selectLevels}>
+                  <Icon name="grid" />
+                  <span>{t.levels}</span>
+                </button>
+                <div className="level-card">
+                  <span className="level-number">{String(levelIndex + 1).padStart(2, "0")}</span>
+                  <div className="level-copy">
+                    <span className="eyebrow">
+                      {t.level} {levelIndex + 1} / {levels.length}
+                    </span>
+                    <h1>{names.title}</h1>
+                  </div>
+                  <div className="level-progress" aria-label={t.levelProgress}>
+                    {levels.slice(progressStart, progressStart + 5).map((level, offset) => (
+                      <span
+                        key={level.id}
+                        className={`${progressStart + offset === levelIndex ? "current" : ""} ${scores[level.id] ? "complete" : ""}`}
+                        aria-current={progressStart + offset === levelIndex ? "step" : undefined}
+                        aria-label={t.levelLabel(progressStart + offset + 1, levelText(level, t).title)}
+                      >
+                        {scores[level.id] ? <Icon name="star" size={13} /> : progressStart + offset + 1}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="hud-center">
+                <div className={`budget ${materialLeft <= state.level.budget * 0.15 ? "is-low" : ""}`} aria-label={t.materialLabel}>
+                  <div className="budget-main">
+                    <span className="budget-label">
+                      <Icon name="bridge" size={18} />
+                      {t.material}
+                    </span>
+                    <strong>
+                      {derived.budgetUsed} / {state.level.budget}
+                    </strong>
+                  </div>
+                  <div className="budget-track">
+                    <span style={{ width: `${(derived.budgetUsed / state.level.budget) * 100}%` }} />
+                  </div>
+                  <div className="budget-footnote">
+                    <span>{t.remaining}</span>
+                    <b>{materialLeft}</b>
+                  </div>
+                </div>
+                <span className="goal-target">
+                  <Icon name="star" size={15} />
+                  {t.target}: ≤ {state.level.parBudget}
                 </span>
-                <div>
-                  <span className="eyebrow">
-                    {t.level} {levelIndex + 1} / {levels.length}
-                  </span>
-                  <h1>{names.title}</h1>
-                </div>
               </div>
-              <p className="level-description">{names.subtitle}</p>
-              <div className="level-progress" aria-label={t.levelProgress}>
-                {levels.slice(progressStart, progressStart + 5).map((level, offset) => (
-                  <span key={level.id}
-                    className={`${progressStart + offset === levelIndex ? "current" : ""} ${scores[level.id] ? "complete" : ""}`}
-                    aria-current={progressStart + offset === levelIndex ? "step" : undefined}
-                    aria-label={t.levelLabel(progressStart + offset + 1, levelText(level, t).title)}
-                  >{scores[level.id] ? <Icon name="check" size={12} /> : progressStart + offset + 1}</span>
-                ))}
-              </div>
-              <div className="budget" aria-label={t.materialLabel}>
-                <div>
-                  <span><Icon name="bridge" size={16} />{t.material}</span>
-                  <strong>
-                    {derived.budgetUsed} / {state.level.budget}
-                  </strong>
-                </div>
-                <div className="budget-track">
-                  <span
-                    style={{
-                      width: `${(derived.budgetUsed / state.level.budget) * 100}%`,
-                    }}
+              <div className="hud-right">
+                {reporting.enabled && (
+                  <SaveChip
+                    attempts={reporting.attempts}
+                    saveState={saveState}
+                    t={t}
+                    onRetrySave={onRetrySave}
+                    onOpen={openSave}
                   />
-                </div>
-                <div className="budget-footnote"><span>{t.remaining}</span><b>{state.level.budget - derived.budgetUsed}</b></div>
+                )}
+                <button
+                  type="button"
+                  className="hud-btn hud-round"
+                  aria-label={sound ? t.soundOff : t.soundOn}
+                  onClick={toggleSound}
+                >
+                  <Icon name={sound ? "sound" : "muted"} />
+                </button>
+                <button
+                  type="button"
+                  className="hud-btn hud-round"
+                  aria-label={t.pause}
+                  disabled={!["building", "testing"].includes(state.phase)}
+                  onClick={() => dispatch({ type: "PAUSE" })}
+                >
+                  <Icon name="pause" />
+                </button>
               </div>
-            </div>
-            <div className="construction-note">
-              <span className="section-label">{t.yourGoal}</span>
-              <p>{t.goalBody}</p>
-              <span className="goal-target"><Icon name="star" size={16} />{t.target}: ≤ {state.level.parBudget}</span>
-            </div>
-            <GameToolbar
-              state={state}
-              dispatch={dispatch}
-              t={t}
-              tutorialTestReady={tutorialTestReady}
-              hintId={hintId}
-            />
-            <p className="keyboard-note">{t.keyboardHint}</p>
-            </aside>
-            <div className="scene-panel">
-            <div className="scene-heading">
-              <span><Icon name="flag" size={16} />{t.sceneTitle}</span>
-              <span>{t.sceneDetail}</span>
-            </div>
-            <BridgeScene
-              state={state}
-              edges={derived.edges}
-              dispatch={dispatch}
-              t={t}
-              pose={simulation.vehiclePose}
-              broken={simulation.broken}
-              collapseSeconds={simulation.collapseSeconds}
-              countdown={simulation.countdown}
-              tutorialNodeId={tutorialNodeId}
-              hintId={hintId}
-              reducedMotion={reducedMotion}
-            />
-            <div
-              className={`hint-bar ${state.message ? "warning" : ""}`}
-              role="status"
-              id={hintId}
-            >
-              <span className="hint-icon">
-                <Icon name="bulb" size={18} />
-              </span>
-              <span><b className="hint-label">{state.message ? t.buildFeedback : t.nextStep}</b>{hint}</span>
-              <span className="hint-counter">
-                {t.target}: ≤ {state.level.parBudget}
-              </span>
-            </div>
-            </div>
-          </section>
-        </div>
+            </>
+          }
+          hudBottom={
+            <>
+              <div className={`hint-bar ${state.message ? "warning" : ""}`} role="status" id={hintId}>
+                <img className="hint-avatar" src={robotWave} alt="" width="52" height="52" />
+                <span className="hint-copy">
+                  <b className="hint-label">{state.message ? t.buildFeedback : t.nextStep}</b>
+                  <span className="hint-text">{hint}</span>
+                </span>
+              </div>
+              <GameToolbar
+                state={state}
+                dispatch={dispatch}
+                t={t}
+                tutorialTestReady={tutorialTestReady}
+                hintId={hintId}
+              />
+              <p className="keyboard-note">{t.keyboardHint}</p>
+            </>
+          }
+        />
       </div>
       {!showLevels && !showSave && !exited && state.phase === "intro" && (
         <IntroModal

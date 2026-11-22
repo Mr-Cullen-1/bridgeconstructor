@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { canConnectNodes } from "../engine/buildRules.js";
 import { createCamera, projectNode } from "../scene/camera.js";
 import { createWorld } from "../scene/world.js";
@@ -15,21 +15,29 @@ export default function BridgeScene({
   tutorialNodeId,
   hintId,
   reducedMotion = false,
+  hudTop,
+  hudBottom,
 }) {
   const container = useRef(null),
     canvas = useRef(null),
     world = useRef(null),
     frame = useRef({}),
-    drag = useRef(null);
+    drag = useRef(null),
+    topRef = useRef(null),
+    bottomRef = useRef(null),
+    previousEdges = useRef(null),
+    projectedRef = useRef(null);
   const [size, setSize] = useState({ width: 800, height: 470 });
+  const [insets, setInsets] = useState({ top: 0, bottom: 0 });
   const [view, setView] = useState("depth"),
     [yaw, setYaw] = useState(0.12),
-    [hover, setHover] = useState(null);
+    [hover, setHover] = useState(null),
+    [pops, setPops] = useState([]);
   const [ready, setReady] = useState(false),
     [unavailable, setUnavailable] = useState(false);
   const camera = useMemo(
-    () => createCamera(size.width, size.height, view, yaw),
-    [size, view, yaw],
+    () => createCamera(size.width, size.height, view, yaw, insets),
+    [size, view, yaw, insets],
   );
   const { level } = state;
   const locked = state.phase !== "building";
@@ -41,24 +49,18 @@ export default function BridgeScene({
         ? {
             a: selected,
             b: target,
-            ...canConnectNodes(
-              level,
-              edges,
-              selected.id,
-              target.id,
-              state.activeEdgeType,
-            ),
+            ...canConnectNodes(level, edges, selected.id, target.id, state.activeEdgeType),
           }
         : null,
     [selected, target, level, edges, state.activeEdgeType],
   );
   const projected = new Map(
-    level.nodes.map((n) => [
-      n.id,
-      projectNode(n, camera, size.width, size.height),
-    ]),
+    level.nodes.map((n) => [n.id, projectNode(n, camera, size.width, size.height)]),
   );
 
+  useEffect(() => {
+    projectedRef.current = projected;
+  });
   useEffect(() => {
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(([entry]) => {
@@ -66,6 +68,22 @@ export default function BridgeScene({
       if (width > 0 && height > 0) setSize({ width, height });
     });
     observer.observe(container.current);
+    return () => observer.disconnect();
+  }, []);
+  // The HUD covers the top and bottom of the screen; the bridge is framed in the free band between.
+  useLayoutEffect(() => {
+    const measure = () =>
+      setInsets((previous) => {
+        const next = {
+          top: topRef.current?.offsetHeight ?? 0,
+          bottom: bottomRef.current?.offsetHeight ?? 0,
+        };
+        return previous.top === next.top && previous.bottom === next.bottom ? previous : next;
+      });
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    [topRef.current, bottomRef.current].forEach((el) => el && observer.observe(el));
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
@@ -114,26 +132,54 @@ export default function BridgeScene({
     world.current?.render(frame.current);
   }, [edges, state.selectedEdgeId, preview, ready, level]);
   useEffect(() => {
-    if (
-      !ready ||
-      reducedMotion ||
-      !["building", "testing"].includes(state.phase)
-    )
-      return;
+    if (!ready || reducedMotion || !["building", "testing"].includes(state.phase)) return;
     let raf,
       last = null;
     function tick(time) {
       if (!document.hidden)
-        world.current?.render(
-          frame.current,
-          last === null ? 0 : Math.min(0.05, (time - last) / 1000),
-        );
+        world.current?.render(frame.current, last === null ? 0 : Math.min(0.05, (time - last) / 1000));
       last = time;
       raf = requestAnimationFrame(tick);
     }
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [ready, reducedMotion, state.phase, level]);
+
+  // Floating "-14" / "+14" labels when material is spent or returned.
+  useEffect(() => {
+    const before = previousEdges.current;
+    previousEdges.current = { edges, levelId: level.id };
+    if (!before || before.levelId !== level.id || before.edges === edges) return;
+    const known = new Set(before.edges.map((e) => e.id)),
+      current = new Set(edges.map((e) => e.id));
+    const changes = [
+      ...edges.filter((e) => e.isPlayerBuilt && !known.has(e.id)).map((e) => [e, "-"]),
+      ...before.edges.filter((e) => e.isPlayerBuilt && !current.has(e.id)).map((e) => [e, "+"]),
+    ];
+    if (!changes.length) return;
+    const points = projectedRef.current;
+    setPops((list) =>
+      [
+        ...list,
+        ...changes.map(([edge, sign]) => {
+          const a = points.get(edge.fromNodeId),
+            b = points.get(edge.toNodeId);
+          return {
+            key: `${edge.id}:${sign}:${list.length}:${edges.length}`,
+            x: (a.x + b.x) / 2,
+            y: (a.y + b.y) / 2 - 18,
+            text: `${sign}${edge.cost}`,
+            gain: sign === "+",
+          };
+        }),
+      ].slice(-6),
+    );
+  }, [edges, level.id]);
+  useEffect(() => {
+    if (!pops.length) return;
+    const timer = setTimeout(() => setPops([]), 1100);
+    return () => clearTimeout(timer);
+  }, [pops]);
 
   function setCamera(next) {
     setView(next);
@@ -143,7 +189,11 @@ export default function BridgeScene({
     if (!locked) dispatch({ type: "SELECT_NODE", nodeId });
   }
   return (
-    <div className="scene-wrap" ref={container}>
+    <div
+      className="scene-wrap"
+      ref={container}
+      style={{ "--inset-top": `${insets.top}px`, "--inset-bottom": `${insets.bottom}px` }}
+    >
       <canvas
         ref={canvas}
         className="world-canvas"
@@ -163,13 +213,7 @@ export default function BridgeScene({
         onPointerMove={(event) => {
           if (drag.current)
             setYaw(
-              Math.max(
-                -0.35,
-                Math.min(
-                  0.35,
-                  drag.current.yaw + (event.clientX - drag.current.x) / 600,
-                ),
-              ),
+              Math.max(-0.35, Math.min(0.35, drag.current.yaw + (event.clientX - drag.current.x) / 600)),
             );
         }}
         onPointerUp={() => {
@@ -198,14 +242,12 @@ export default function BridgeScene({
                 className="edge-hit"
                 fill="transparent"
                 onClick={() => {
-                  if (!locked)
-                    dispatch({ type: "SELECT_EDGE", edgeId: edge.id });
+                  if (!locked) dispatch({ type: "SELECT_EDGE", edgeId: edge.id });
                 }}
                 onKeyDown={(e) => {
                   if (["Enter", " "].includes(e.key)) {
                     e.preventDefault();
-                    if (!locked)
-                      dispatch({ type: "SELECT_EDGE", edgeId: edge.id });
+                    if (!locked) dispatch({ type: "SELECT_EDGE", edgeId: edge.id });
                   }
                 }}
               />
@@ -217,9 +259,10 @@ export default function BridgeScene({
             y1={projected.get(selected.id).y}
             x2={projected.get(target.id).x}
             y2={projected.get(target.id).y}
-            stroke={preview.ok ? "#83ebba" : "#ff8c70"}
-            strokeWidth="3"
-            strokeDasharray="6 5"
+            stroke={preview.ok ? "#5fe08a" : "#ff6b4a"}
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeDasharray="2 9"
             pointerEvents="none"
           />
         )}
@@ -250,70 +293,57 @@ export default function BridgeScene({
               }}
             >
               <circle cx={p.x} cy={p.y} r="22" fill="transparent" />
+              {(active || cue) && !locked && (
+                <circle className="node-ring" cx={p.x} cy={p.y} r="17" fill="none" stroke={active ? "#ffd54a" : "#ffffff"} strokeWidth="3" />
+              )}
               <circle
                 className="node-halo"
                 cx={p.x}
                 cy={p.y}
-                r="16"
-                fill={active ? "#efb74755" : "#f9f7df25"}
-                stroke={active || cue ? "#ffd475" : "#fff9df88"}
-                strokeWidth={cue ? 2.5 : 1}
+                r="15"
+                fill={active ? "#ffd54a66" : "#ffffff33"}
+                stroke={active || cue ? "#ffd54a" : "#ffffffcc"}
+                strokeWidth={active || cue ? 3 : 2}
               />
               <circle
+                className="node-core"
                 cx={p.x}
                 cy={p.y}
-                r={node.type === "anchor" ? 7 : 6}
-                fill={active ? "#ffce68" : "#f5f1d5"}
-                stroke="#29574d"
-                strokeWidth="2.5"
+                r={node.type === "anchor" ? 8.5 : 7.5}
+                fill={active ? "#ffd54a" : node.type === "anchor" ? "#ffe9a3" : "#ffffff"}
+                stroke="#5b351a"
+                strokeWidth="3.5"
               />
-              {cue && (
-                <path
-                  d={`M${p.x - 5} ${p.y - 28}l5 5 5-5`}
-                  fill="none"
-                  stroke="#fff0ad"
-                  strokeWidth="3"
-                  pointerEvents="none"
-                />
-              )}
-              <text
-                className="node-label"
-                x={p.x}
-                y={p.y + 30}
-                textAnchor="middle"
-                pointerEvents="none"
-              >
+              {cue && <path d={`M${p.x - 6} ${p.y - 32}l6 6 6-6`} fill="none" stroke="#ffd54a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
+              <text className="node-label" x={p.x} y={p.y + 33} textAnchor="middle" pointerEvents="none">
                 {node.id.toUpperCase()}
               </text>
             </g>
           );
         })}
       </svg>
+      {pops.map((pop) => (
+        <span key={pop.key} className={`cost-pop ${pop.gain ? "gain" : ""}`} style={{ left: pop.x, top: pop.y }} aria-hidden="true">
+          {pop.text}
+        </span>
+      ))}
       <div className="scene-status">
-        <span
-          className={`status-dot ${state.phase === "testing" ? "live" : ""}`}
-        />
+        <span className={`status-dot ${state.phase === "testing" ? "live" : ""}`} />
         {state.phase === "testing" ? t.testing : t.building}
       </div>
       <div className="camera-controls" aria-label={t.camera}>
-        <button
-          aria-label={t.depthView}
-          aria-pressed={view === "depth"}
-          onClick={() => setCamera("depth")}
-        >
+        <button aria-label={t.depthView} aria-pressed={view === "depth"} onClick={() => setCamera("depth")}>
           3D
         </button>
-        <button
-          aria-label={t.frontView}
-          aria-pressed={view === "front"}
-          onClick={() => setCamera("front")}
-        >
+        <button aria-label={t.frontView} aria-pressed={view === "front"} onClick={() => setCamera("front")}>
           {t.frontShort}
         </button>
       </div>
-      <div className="world-caption" aria-hidden="true">
-        <span>{t.worldName}</span>
-        <span>{t.orbitHint}</span>
+      <div className="hud-top" ref={topRef}>
+        {hudTop}
+      </div>
+      <div className="hud-bottom" ref={bottomRef}>
+        {hudBottom}
       </div>
       {unavailable && (
         <div className="webgl-error" role="alert">
@@ -322,7 +352,7 @@ export default function BridgeScene({
       )}
       {countdown > 0 && (
         <div className="countdown" aria-live="polite">
-          <span>{countdown}</span>
+          <span key={countdown}>{countdown}</span>
           <small>{t.ready}</small>
         </div>
       )}

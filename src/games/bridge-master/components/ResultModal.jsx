@@ -1,5 +1,13 @@
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
+const confetti = Array.from({ length: 30 }, (_, i) => ({
+  left: (i * 37 + 11) % 100,
+  delay: (i % 10) * 0.07,
+  fall: 1.7 + (i % 5) * 0.28,
+  color: ["#ffd54a", "#ff6b4a", "#5fe08a", "#6c9bff", "#ff8bd0"][i % 5],
+  spin: (i % 2 ? 1 : -1) * (240 + i * 23),
+  size: 7 + (i % 4) * 2,
+}));
 export default function ResultModal({
   result,
   t,
@@ -15,6 +23,13 @@ export default function ResultModal({
   const success = result.status === "completed";
   return (
     <Modal title={success ? t.success : t.failed} eyebrow={success ? t.levelComplete : t.tryAgain} className={`result-modal ${success ? "result-success" : "result-failed"}`}>
+      {success && (
+        <div className="confetti" aria-hidden="true">
+          {confetti.map((c, i) => (
+            <i key={i} style={{ left: `${c.left}%`, background: c.color, width: c.size, height: c.size * 1.6, "--delay": `${c.delay}s`, "--fall": `${c.fall}s`, "--spin": `${c.spin}deg` }} />
+          ))}
+        </div>
+      )}
       <div className="stars" aria-label={t.stars(result.stars)}>
         {[1, 2, 3].map((n) => (
           <Icon
@@ -22,6 +37,7 @@ export default function ResultModal({
             name="star"
             size={40}
             className={n <= result.stars ? "earned" : "empty"}
+            style={{ "--i": n }}
           />
         ))}
       </div>

@@ -26,7 +26,7 @@ export function useSimulation({
     : 0.5;
   const end =
     run?.outcome.status === "failed"
-      ? countdownMs + travelMs * failureProgress + (reducedMotion ? 150 : 700)
+      ? countdownMs + travelMs * failureProgress + (reducedMotion ? 150 : 1500)
       : countdownMs + travelMs;
   useEffect(() => {
     if (!run || phase !== "testing" || done.current) return;
@@ -70,7 +70,7 @@ export function useSimulation({
     collapseSeconds: broken
       ? reducedMotion
         ? 0.7
-        : Math.min(0.7, (elapsedMs - countdownMs - travelMs * failureProgress) / 1000)
+        : Math.min(1.5, (elapsedMs - countdownMs - travelMs * failureProgress) / 1000)
       : 0,
   };
 }

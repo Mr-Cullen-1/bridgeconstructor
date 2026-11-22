@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { playSfx } from "../scene/sfx.js";
+
 export function usePreferences() {
   const [reducedMotion, setReduced] = useState(false),
     [sound, setSound] = useState(false),
-    audio = useRef(null);
+    audio = useRef(null),
+    soundOn = useRef(false);
   useEffect(() => {
     const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     if (!media) return;
@@ -17,23 +20,14 @@ export function usePreferences() {
     },
     [],
   );
-  function beep(frequency = 520) {
-    if (!audio.current || !sound) return;
-    try {
-      const context = audio.current,
-        oscillator = context.createOscillator(),
-        gain = context.createGain();
-      oscillator.frequency.value = frequency;
-      gain.gain.setValueAtTime(0.025, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.09);
-      oscillator.connect(gain);
-      gain.connect(context.destination);
-      oscillator.start();
-      oscillator.stop(context.currentTime + 0.1);
-    } catch {
-      /* Audio is optional. */
-    }
-  }
+  useEffect(() => {
+    soundOn.current = sound;
+  }, [sound]);
+  // Sound starts muted and is only created after the player taps the sound button.
+  const play = useCallback((name = "click") => {
+    if (!audio.current || !soundOn.current) return;
+    playSfx(audio.current, name);
+  }, []);
   function toggleSound() {
     if (!sound) {
       const Audio = window.AudioContext || window.webkitAudioContext;
@@ -46,5 +40,5 @@ export function usePreferences() {
     }
     setSound((v) => !v);
   }
-  return { reducedMotion, sound, toggleSound, beep };
+  return { reducedMotion, sound, toggleSound, play };
 }
