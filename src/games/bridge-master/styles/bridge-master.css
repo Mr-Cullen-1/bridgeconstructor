@@ -605,3 +605,47 @@
   .gl-step { padding-top: 11px; padding-bottom: 11px; }
   .gl-footer { padding-top: 12px; padding-bottom: 22px; }
 }
+
+/* ===== Intro dialog in the game's cartoon style (wood frame, parchment, gold badge, green action) ===== */
+.gl-intro {
+  --gl-ink: var(--ink-brown); --gl-muted: #7a5230; --gl-line: var(--wood-edge); --gl-line-3d: var(--wood-edge); --gl-lilac: var(--paper-2);
+  background: var(--paper); color: var(--ink-brown);
+  border: 4px solid var(--wood-edge); border-bottom-width: 8px; border-radius: 30px;
+  font-family: Nunito, "Trebuchet MS", "Segoe UI Rounded", "Segoe UI", system-ui, sans-serif;
+  box-shadow: 0 26px 70px #1a2b5a66;
+}
+.gl-hero { border-radius: 24px 24px 0 0; border-bottom: 4px solid var(--wood-edge); background: linear-gradient(#7fd0ff, #e3f6ff); }
+.gl-badge { color: var(--ink-brown); background: var(--gold); border: 2px solid var(--wood-edge); box-shadow: 0 3px 0 var(--gold-edge); font-weight: 900; }
+.gl-badge svg { fill: var(--ink-brown); stroke: var(--ink-brown); }
+.gl-intro .gl-body h2 { color: var(--ink-brown); font-weight: 900; }
+.gl-intro .gl-lead { color: #7a5230; font-weight: 700; }
+.gl-how { color: #e0501f; font-weight: 900; }
+.gl-step { background: #fff8e3; border: 3px solid var(--wood-edge); border-bottom-width: 6px; border-radius: 18px; }
+.gl-step-icon, .gl-step-1 .gl-step-icon, .gl-step-2 .gl-step-icon { color: #fff; border: 2px solid var(--wood-edge); border-radius: 50%; }
+.gl-step-icon { background: #5d6b7a; }
+.gl-step-1 .gl-step-icon { background: var(--steel); }
+.gl-step-2 .gl-step-icon { background: var(--good); }
+.gl-step-copy b { color: var(--ink-brown); font-weight: 900; }
+.gl-step-copy small { color: #7a5230; font-weight: 700; }
+.gl-step em { display: grid; place-items: center; width: 26px; height: 26px; font-size: 13px; font-weight: 900; color: var(--ink-brown); background: var(--gold); border: 2px solid var(--wood-edge); border-radius: 50%; }
+.gl-facts li { color: #ffe9b6; background: var(--wood-dark); border: 2px solid var(--wood-edge); font-weight: 900; }
+.gl-facts b { color: var(--gold); }
+.gl-intro .gl-math { color: var(--brown-soft); font-weight: 800; }
+.gl-math svg { color: #e0501f; }
+.gl-tip { color: var(--ink-brown); background: var(--paper-2); border: 3px solid var(--wood-edge); border-bottom-width: 5px; border-radius: 18px; }
+.gl-tip b { color: #e0501f; font-weight: 900; }
+.gl-intro .gl-tip p { color: var(--ink-brown); font-weight: 800; }
+.gl-tiles > div { background: #fff8e3; border: 3px solid var(--wood-edge); border-bottom-width: 6px; border-radius: 18px; }
+.gl-tile-icon { color: #fff; background: var(--good); border: 2px solid var(--wood-edge); border-radius: 50%; }
+.gl-tile-star { background: var(--gold); }
+.gl-tiles small { color: var(--brown-soft); font-weight: 800; }
+.gl-tiles b { color: var(--ink-brown); font-weight: 900; }
+.gl-tools li { color: var(--ink-brown); background: var(--paper-2); border: 2px solid var(--wood-edge); border-radius: 14px; font-weight: 900; }
+.gl-tools small { color: var(--brown-soft); font-weight: 700; }
+.gl-footer { background: linear-gradient(#fff3d100, var(--paper) 35%); }
+.gl-cta { color: #fff; text-shadow: 0 2px 0 var(--good-edge); background: linear-gradient(180deg, #74e374, #33b04e); border: 3px solid var(--good-edge); border-bottom-width: 7px; border-radius: 20px;
+  box-shadow: inset 0 2px 0 #ffffff66, 0 8px 14px #1a2b5a40; animation: bm-cta 2.2s ease-in-out infinite; }
+.gl-cta:hover { background: linear-gradient(180deg, #82ee82, #3bbb56); }
+.gl-cta:active { transform: translateY(2px); border-bottom-width: 4px; margin-bottom: 0; animation: none; }
+.gl-cta:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .gl-cta { animation: none; } }

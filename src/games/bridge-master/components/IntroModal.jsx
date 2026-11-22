@@ -14,11 +14,11 @@ const star = "M0-10 3-3.4 10-2.8 4.6 2 6.2 9 0 5.3-6.2 9-4.6 2-10-2.8-3-3.4Z";
 
 function HeroScene({ hello, compact }) {
   return (
-    <svg className="gl-scene" viewBox={compact ? "30 34 500 132" : "20 4 520 192"} preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">
+    <svg className="gl-scene" viewBox={compact ? "30 16 500 150" : "20 -8 520 204"} preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">
       <defs>
         <linearGradient id="gl-sky" gradientUnits="userSpaceOnUse" x1="0" y1="-10" x2="0" y2="200">
-          <stop offset="0" stopColor="#FFE3DB" />
-          <stop offset="1" stopColor="#EFEBFF" />
+          <stop offset="0" stopColor="#7FD0FF" />
+          <stop offset="1" stopColor="#E3F6FF" />
         </linearGradient>
       </defs>
       <rect x="-700" y="-400" width="1960" height="900" fill="url(#gl-sky)" />
@@ -31,36 +31,36 @@ function HeroScene({ hello, compact }) {
         <rect x="330" y="60" width="58" height="16" rx="8" />
         <rect x="344" y="51" width="30" height="16" rx="8" />
       </g>
-      <path d="M-210 150-120 84-30 150Z" fill="#DCD5FF" />
-      <path d="M-10 150 80 78l62 72Z" fill="#DCD5FF" />
-      <path d="M380 150 458 70l92 80Z" fill="#CFC5FF" />
-      <path d="M590 150 680 80l90 70Z" fill="#DCD5FF" />
-      <rect x="-700" y="168" width="1960" height="400" fill="#6C47FF" opacity=".22" />
+      <path d="M-210 150-120 84-30 150Z" fill="#8FD96B" />
+      <path d="M-10 150 80 78l62 72Z" fill="#8FD96B" />
+      <path d="M380 150 458 70l92 80Z" fill="#74C95F" />
+      <path d="M590 150 680 80l90 70Z" fill="#8FD96B" />
+      <rect x="-700" y="168" width="1960" height="400" fill="#2BC0E0" />
       <path className="gl-wave" d={wave} fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" opacity=".7" />
-      <path d="M-700 128H120V560H-700Z" fill="#D9C4A8" />
-      <path d="M380 128H1260V560H380Z" fill="#D9C4A8" />
-      <rect x="-700" y="122" width="820" height="10" rx="3" fill="#2FA84F" />
-      <rect x="380" y="122" width="880" height="10" rx="3" fill="#2FA84F" />
+      <path d="M-700 128H120V560H-700Z" fill="#C98D5A" />
+      <path d="M380 128H1260V560H380Z" fill="#C98D5A" />
+      <rect x="-700" y="122" width="820" height="10" rx="3" fill="#79D957" />
+      <rect x="380" y="122" width="880" height="10" rx="3" fill="#79D957" />
       <rect x="-700" y="132" width="820" height="4" fill="#00000012" />
       <rect x="380" y="132" width="880" height="4" fill="#00000012" />
-      <g stroke="#FA4F28" strokeWidth="5" strokeLinecap="round" fill="none">
+      <g stroke="#8FA6BD" strokeWidth="5" strokeLinecap="round" fill="none">
         {nodes.map((x, i) => (
           <path key={x} className="gl-draw" style={{ "--d": `${1.5 + i * 0.16}s` }} pathLength="1" d={`M${x} 128 ${apex.x} ${apex.y}`} />
         ))}
       </g>
-      <g stroke="#3B3763" strokeWidth="10" strokeLinecap="round" fill="none">
+      <g stroke="#8A5A2B" strokeWidth="10" strokeLinecap="round" fill="none">
         {nodes.slice(1).map((x, i) => (
           <path key={x} className="gl-draw" style={{ "--d": `${0.3 + i * 0.25}s` }} pathLength="1" d={`M${nodes[i]} 128H${x}`} />
         ))}
       </g>
-      <g fill="#fff" stroke="#1E1B39" strokeWidth="3">
+      <g fill="#fff" stroke="#5B351A" strokeWidth="3">
         {nodes.map((x, i) => (
           <circle key={x} className="gl-pop" style={{ "--d": `${0.2 + i * 0.25}s` }} cx={x} cy="128" r="6.5" />
         ))}
       </g>
-      <circle className="gl-pop" style={{ "--d": "1.3s" }} cx={apex.x} cy={apex.y} r="8" fill="#6C47FF" stroke="#1E1B39" strokeWidth="3" />
+      <circle className="gl-pop" style={{ "--d": "1.3s" }} cx={apex.x} cy={apex.y} r="8" fill="#FFD54A" stroke="#5B351A" strokeWidth="3" />
       <g className="gl-flag">
-        <path d="M398 122V86" stroke="#1E1B39" strokeWidth="3" strokeLinecap="round" />
+        <path d="M398 122V86" stroke="#5B351A" strokeWidth="3" strokeLinecap="round" />
         <path d="M398 86h20l-5 7 5 7h-20Z" fill="#FA4F28" />
       </g>
       <g className="gl-truck">
