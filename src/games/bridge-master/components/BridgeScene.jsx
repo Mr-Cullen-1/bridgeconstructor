@@ -175,6 +175,10 @@ export default function BridgeScene({
       ].slice(-6),
     );
   }, [edges, level.id]);
+  // Floating labels belong to building; clear them when a test starts or a dialog opens.
+  useEffect(() => {
+    if (state.phase !== "building") setPops([]);
+  }, [state.phase]);
   useEffect(() => {
     if (!pops.length) return;
     const timer = setTimeout(() => setPops([]), 1100);
