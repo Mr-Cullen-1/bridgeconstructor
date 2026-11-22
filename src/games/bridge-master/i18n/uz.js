@@ -144,4 +144,59 @@ export const uz = {
     invalidConfig: "Bosqich ma’lumotlari noto‘g‘ri.",
     invalidGraph: "Ko‘prik ma’lumotlari noto‘g‘ri.",
   },
+  // Level titles come from the level JSON in Uzbek; other languages override them here.
+  levelTexts: {},
+  save: {
+    label: "Saqlash holati",
+    start: "Boshlanish",
+    result: "Natija",
+    idle: "Hali saqlanmagan",
+    saving: "Saqlanmoqda…",
+    queued: "Yuborish kutilmoqda",
+    saved: "Saqlandi",
+    error: "Saqlanmadi",
+    retry: "Qayta yuborish",
+    panelTitle: "Saqlash holati",
+    panelBody:
+      "Har bir urinish alohida saqlanadi. Saqlanmaganlarini qayta yuborishingiz mumkin.",
+    pending: (n) => `${n} ta natija saqlanmagan`,
+    outcomes: {
+      success: "Muvaffaqiyatli",
+      failure: "Muvaffaqiyatsiz",
+      aborted: "To‘xtatildi",
+      active: "Davom etmoqda",
+    },
+    attemptRow: (n, level) => `${n}-urinish · ${level}`,
+  },
+  intro: {
+    badge: "MATEMATIK GAMELAB",
+    title: "Bridge Master",
+    hello: "Salom!",
+    lead: "Ikki qirg‘oq orasiga ko‘prik quring, mashinani narigi tomonga o‘tkazing va 3 yulduz yig‘ing!",
+    howTitle: "Qanday o‘ynaladi?",
+    steps: [
+      {
+        title: "Nuqtalarni ulang",
+        text: "Ikki nuqtani ketma-ket bosing — yo‘l kesmasi paydo bo‘ladi.",
+      },
+      {
+        title: "Tayanch qo‘shing",
+        text: "Uchburchaklar ko‘prikni mustahkam va tejamkor qiladi.",
+      },
+      {
+        title: "Ko‘prikni sinang",
+        text: "Mashina narigi qirg‘oqqa o‘tsa — bosqich bajariladi.",
+      },
+    ],
+    facts: [
+      { value: "20", label: "bosqich" },
+      { value: "3", label: "yulduz" },
+      { value: "∞", label: "urinish" },
+    ],
+    mathLine: "Uzunlik, uchburchak va material hisobi — hammasi o‘yin ichida.",
+    levelBadge: (n, total) => `${n} / ${total} · BOSQICH`,
+    budget: "Material",
+    starGoal: "3 yulduz uchun",
+    tip: "Maslahat",
+  },
 };

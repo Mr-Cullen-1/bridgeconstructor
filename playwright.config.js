@@ -7,7 +7,7 @@ export default defineConfig({
   expect: { timeout: 12000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: process.env.BASE_URL ?? "http://127.0.0.1:5173",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     reducedMotion: "reduce",
@@ -37,6 +37,16 @@ export default defineConfig({
         viewport: { width: 360, height: 800 },
         isMobile: true,
         hasTouch: true,
+      },
+    },
+    {
+      name: "gamelab",
+      testDir: "./tests/gamelab",
+      testMatch: "gamelab.spec.js",
+      use: {
+        browserName: "chromium",
+        channel: "chrome",
+        viewport: { width: 1366, height: 768 },
       },
     },
     {

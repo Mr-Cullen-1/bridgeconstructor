@@ -10,6 +10,7 @@ export default function ResultModal({
   isLast,
   reasonCode,
   levelHint,
+  saveLine,
 }) {
   const success = result.status === "completed";
   return (
@@ -45,6 +46,7 @@ export default function ResultModal({
         </div>
       </div>
       <p className="attempt-summary">{t.attempts}: <b>{result.attempts}</b> · {t.activeTime}: <b>{result.durationSeconds} {t.seconds}</b></p>
+      {saveLine}
       <div className="modal-actions">
         {success ? (
           <>

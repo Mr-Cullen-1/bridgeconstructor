@@ -1,0 +1,5 @@
+/* Page-level reset for the standalone app and the legacy LMS iframe runner only.
+   The GameLab build never includes this file: it must not touch html, body or #root. */
+:root { background: #f3f2ec; }
+html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+#root { height: 100dvh; }

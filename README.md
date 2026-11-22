@@ -88,7 +88,16 @@ Dependencylar `package-lock.json` bilan qayd etilgan. ESLint 9.39.5 vaqtincha is
 - [QA natijalari](docs/qa/bridge-master.md)
 - [Haqiqiy telefon va o‘quvchi sinovi yo‘riqnomasi](docs/qa/playtest-guide.md)
 
-## Bitta JSX orqali LMSga topshirish
+## GameLab JSX (kontrakt v1)
+
+```powershell
+npm.cmd run export:gamelab   # delivery/gamelab/Game.jsx + manifest tekshiruvi
+npm.cmd run test:gamelab     # eksport + mock host brauzer testlari (dev server kerak emas, avtomatik ishga tushadi)
+```
+
+Kirish: `src/gamelab/Game.jsx` (props: `context, lang, progress, saveState, onAttemptStart, onAttemptEnd, onRetrySave, onExit, onEvent`). Mock host: `gamelab-host.html` (`?lang=ru&save=error|offline&artifact=1`). Tafsilot va qarorlar: [GameLab v1](docs/contracts/gamelab-v1.md). Matnlar UZ/RU/EN (`src/games/bridge-master/i18n/`). Kirish oynasi GameLab dizaynida (3D robot/tanga/kubok assetlari `scripts/make-intro-assets.mjs` bilan olingan).
+
+## Bitta JSX orqali LMSga topshirish (eski LMS v1)
 
 Tayyor fayllar: [BridgeMaster.jsx](delivery/BridgeMaster.jsx) va [LMS dev jamoasi uchun hujjat](delivery/LMS-INTEGRATION.md).
 O‘yin, CSS, 20 ta level va Three.js bir JSX ichida; host faqat React runtime va callback transportini beradi. Kontent versiyasi `1.1.0`, callback kontrakti `v1`. Bosqichlar beshtadan to‘rtta sahifada tanlanadi; oyna joriy bosqich sahifasida ochiladi.

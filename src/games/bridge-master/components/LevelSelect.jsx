@@ -1,6 +1,7 @@
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
 import { useState } from "react";
+import { levelText } from "../i18n/index.js";
 
 const pageSize = 5;
 
@@ -14,24 +15,27 @@ export default function LevelSelect({ levels, t, onSelect, onClose, scores, curr
     <Modal title={t.chooseLevel} eyebrow={t.yourJourney} className="levels-modal">
       <p>{t.chooseLevelBody}</p>
       <div className="level-grid">
-        {levels.slice(start, start + pageSize).map((level, index) => (
+        {levels.slice(start, start + pageSize).map((level, index) => {
+          const text = levelText(level, t);
+          return (
           <button
             key={level.id}
             className={`level-choice ${currentLevelId === level.id ? "is-current" : ""} ${scores[level.id] ? "is-complete" : ""}`}
-            aria-label={t.levelLabel(start + index + 1, level.title)}
+            aria-label={t.levelLabel(start + index + 1, text.title)}
             onClick={() => onSelect(level)}
           >
             <span>{String(start + index + 1).padStart(2, "0")}</span>
             <div>
-              <b>{level.title}{currentLevelId === level.id && <em>{t.currentLevel}</em>}</b>
-              <small>{level.subtitle}</small>
+              <b>{text.title}{currentLevelId === level.id && <em>{t.currentLevel}</em>}</b>
+              <small>{text.subtitle}</small>
             </div>
             <span aria-label={t.stars(scores[level.id] ?? 0)}>
               {"★".repeat(scores[level.id] ?? 0)}
               {"☆".repeat(3 - (scores[level.id] ?? 0))}
             </span>
           </button>
-        ))}
+          );
+        })}
       </div>
       <div className="level-footer">
         {pageCount > 1 && (

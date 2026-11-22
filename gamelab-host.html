@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="uz">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GameLab mock host — QA only</title>
+    <style>
+      /* The host owns the page. The game must not change any of this. */
+      html, body { height: 100%; margin: 0; background: #ffffff; font-family: system-ui, sans-serif; }
+      #root { height: 100dvh; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <button id="host-sentinel" type="button" style="position:fixed;left:0;bottom:0;opacity:0;pointer-events:none">host</button>
+    <script type="module" src="/tests/gamelab/host.jsx"></script>
+  </body>
+</html>

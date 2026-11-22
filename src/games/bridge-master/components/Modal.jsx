@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-export default function Modal({ title, children, className = "", eyebrow }) {
+// `custom` lets a dialog supply its own heading layout; focus trap and dialog semantics stay shared.
+export default function Modal({ title, children, className = "", eyebrow, custom = false }) {
   const ref = useRef(null);
   useEffect(() => {
     const previous = document.activeElement;
@@ -30,8 +31,8 @@ export default function Modal({ title, children, className = "", eyebrow }) {
         className={`modal ${className}`}
         onKeyDown={trap}
       >
-        {eyebrow && <span className="modal-eyebrow">{eyebrow}</span>}
-        <h2>{title}</h2>
+        {!custom && eyebrow && <span className="modal-eyebrow">{eyebrow}</span>}
+        {!custom && <h2>{title}</h2>}
         {children}
       </section>
     </div>

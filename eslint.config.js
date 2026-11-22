@@ -7,6 +7,7 @@ export default [
       "node_modules/**",
       "dist/**",
       "delivery/BridgeMaster.jsx",
+      "delivery/gamelab/Game.jsx",
       ".tools/**",
       ".superpowers/**",
       "output/**",

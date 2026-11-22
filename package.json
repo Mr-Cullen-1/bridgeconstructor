@@ -16,7 +16,10 @@
     "export:lms": "node scripts/export-lms.mjs && node scripts/check-lms.mjs",
     "check:lms": "node scripts/check-lms.mjs",
     "test:lms": "npm run export:lms && playwright test --config playwright.lms.config.js",
-    "preview:lms": "node scripts/serve-lms-preview.mjs"
+    "preview:lms": "node scripts/serve-lms-preview.mjs",
+    "export:gamelab": "node scripts/export-gamelab.mjs && node scripts/check-gamelab.mjs",
+    "check:gamelab": "node scripts/check-gamelab.mjs",
+    "test:gamelab": "npm run export:gamelab && playwright test --project=gamelab"
   },
   "dependencies": {
     "react": "^19.3.1",
