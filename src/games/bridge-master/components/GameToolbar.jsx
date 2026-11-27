@@ -4,10 +4,11 @@ export default function GameToolbar({ state, dispatch, t, tutorialTestReady, hin
   return (
     <div className="toolbar">
       <span className="section-label tool-heading">{t.buildTools}</span>
-      <div className="tool-materials" aria-label={t.material}>
+      <div className="tool-materials" aria-label={t.material} data-tour="materials">
         {["road", "support"].map((type) => (
           <button
             key={type}
+            data-tour={`tool-${type}`}
             className={`material-button ${state.activeEdgeType === type ? "active" : ""}`}
             disabled={locked}
             onClick={() => dispatch({ type: "SET_EDGE_TYPE", edgeType: type })}
@@ -20,7 +21,7 @@ export default function GameToolbar({ state, dispatch, t, tutorialTestReady, hin
           </button>
         ))}
       </div>
-      <div className="edit-tools">
+      <div className="edit-tools" data-tour="edit">
         {[
           ["undo", "UNDO", !state.history.length],
           ["remove", "REMOVE_EDGE", !state.selectedEdgeId],
@@ -41,6 +42,7 @@ export default function GameToolbar({ state, dispatch, t, tutorialTestReady, hin
       </div>
       <button
         className={`primary test-button ${tutorialTestReady ? "tutorial-ready" : ""}`}
+        data-tour="test"
         aria-describedby={tutorialTestReady ? hintId : undefined}
         disabled={locked}
         onClick={() => dispatch({ type: "START_TEST" })}

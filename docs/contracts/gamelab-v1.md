@@ -18,6 +18,7 @@ Eski `delivery/BridgeMaster.jsx` (LMS contract v1, `onFinished`) **qayta eksport
 | Rekord | Faqat `success`: `stars` ↓, `score` ↓, `durationSeconds` ↑. `scoreVersion: 1` |
 | Saqlash holati | Sarlavhada chip (idle/saving/queued/saved/error), natija oynasida qator, saqlanmaganlar ro‘yxati va «Qayta yuborish» (`onRetrySave(attemptId)`). `start` xatosi o‘yin davomida ko‘rinadi; `queued` hech qachon «Saqlandi» deb ko‘rsatilmaydi |
 | Progress | `completedLevelIds` va joriy `scoreVersion` dagi `bestResult.metrics.stars` bosqich tanlashda yulduz sifatida ko‘rinadi; props yangilanishi o‘yinni qayta boshlamaydi |
+| Ko‘rsatma | Robot darslari (1–3-bosqich to‘liq, 4/7/10/12/17 qisqa «YANGI!»). `localStorage` yo‘q: GameLab’da dars shu bosqich `completedLevelIds`/`scopes` da yo‘q bo‘lsa va sahifa yuklanishida ko‘rilmagan bo‘lsagina ochiladi; «O‘tkazib yuborish» sahifa yuklanishi davomida hammasini o‘chiradi. Kontraktga yangi prop qo‘shilmagan |
 | Tillar | UZ/RU/EN (`i18n/`), `lang` almashganda holat saqlanadi; noma’lum til → `uz` |
 | Izolyatsiya | CSS to‘liq `.bridge-app` ichida; `html/body/#root` qoidalari faqat `page-reset.css` da (GameLab eksportiga kirmaydi); modal konteyner ichida (`position:absolute`); `inert` DOM atributi orqali (React 18 va 19 uchun bir xil) |
 | Eventlar | `onEvent({name, data:{levelId, attemptNumber}})`, ixtiyoriy |

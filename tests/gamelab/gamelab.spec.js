@@ -11,6 +11,9 @@ async function open(page, query = "") {
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`/gamelab-host.html${query}`);
   await page.getByRole("button", { name: "Qurishni boshlash" }).click();
+  // The mock host has no saved progress, so this is a first run: the guided tour opens. These tests
+  // are about the host contract, so skip it (the tour itself is covered in tests/e2e/onboarding.spec.js).
+  await page.getByRole("button", { name: "O‘tkazib yuborish" }).click();
   return errors;
 }
 const testButton = (page) => page.getByRole("button", { name: "Ko‘prikni sinash", exact: true });

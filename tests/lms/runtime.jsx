@@ -23,7 +23,7 @@ window.addEventListener("message", function init(event) {
         lang="uz"
         onFinished={(result) => send("completed", result)}
         onExit={(metadata) => send("exited", metadata)}
-        config={{ onEvent: (data) => send("event", data) }}
+        config={{ onEvent: (data) => send("event", data), onboarding: false }}
       />
     </React.StrictMode>,
   );

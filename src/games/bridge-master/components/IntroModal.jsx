@@ -97,7 +97,7 @@ function HeroScene({ hello, compact }) {
   );
 }
 
-export default function IntroModal({ t, level, levelIndex, total, levelHint, onStart }) {
+export default function IntroModal({ t, level, levelIndex, total, levelHint, onStart, tour = false }) {
   const first = level.difficulty === 1;
   const text = levelText(level, t);
   const { intro } = t;
@@ -130,6 +130,12 @@ export default function IntroModal({ t, level, levelIndex, total, levelHint, onS
                 <Icon name="bulb" size={18} />
                 {intro.mathLine}
               </p>
+              {tour && (
+                <p className="gl-math gl-tour-note">
+                  <Icon name="flag" size={18} />
+                  {intro.tourNote}
+                </p>
+              )}
             </>
           ) : (
             levelHint && (

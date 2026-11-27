@@ -281,6 +281,7 @@ export default function BridgeScene({
               tabIndex={locked ? -1 : 0}
               aria-disabled={locked}
               aria-label={t.node(node.id)}
+              data-tour={`node-${node.id}`}
               aria-pressed={active}
               aria-describedby={cue ? hintId : undefined}
               className={`node-marker ${active ? "selected" : ""} ${cue ? "tutorial-node" : ""}`}
@@ -335,7 +336,7 @@ export default function BridgeScene({
         <span className={`status-dot ${state.phase === "testing" ? "live" : ""}`} />
         {state.phase === "testing" ? t.testing : t.building}
       </div>
-      <div className="camera-controls" aria-label={t.camera}>
+      <div className="camera-controls" aria-label={t.camera} data-tour="camera">
         <button aria-label={t.depthView} aria-pressed={view === "depth"} onClick={() => setCamera("depth")}>
           3D
         </button>

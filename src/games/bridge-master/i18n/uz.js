@@ -198,5 +198,165 @@ export const uz = {
     budget: "Material",
     starGoal: "3 yulduz uchun",
     tip: "Maslahat",
+    tourNote: "Robot o‘yinni qadam-baqadam, har bir tugma ustida ko‘rsatib beradi.",
+  },
+  // Guided lessons: every step points at the real element it talks about (see onboarding/steps.js).
+  tour: {
+    label: "O‘yin bo‘yicha qo‘llanma",
+    skip: "O‘tkazib yuborish",
+    next: "Tushunarli",
+    fresh: "YANGI!",
+    stepOf: (n, total) => `${n} / ${total}`,
+    lessons: {
+      "bridge-01": {
+        goal: {
+          title: "Ko‘prik quramiz!",
+          text: "Chap qirg‘oqdan (A) o‘ng qirg‘oqqa (E) ko‘prik quramiz. Mashina shu yo‘ldan o‘tadi.",
+        },
+        level: {
+          title: "Bu — bosqich",
+          text: "Bu yerda bosqich raqami va nomi ko‘rinadi. Hammasi bo‘lib 20 ta bosqich bor. Chap tugma bilan xohlagan bosqichni tanlaysiz.",
+        },
+        budget: {
+          title: "Material — sizning hamyoningiz",
+          text: "Yo‘lning har bir bo‘lagi material sarflaydi. Material tugasa, yangi bo‘lak qo‘sha olmaysiz. Pastdagi sondan kam sarflasangiz — 3 yulduz!",
+        },
+        tools: {
+          title: "Ikkita asbob",
+          text: "«Yo‘l» — mashina yuradigan qism, hozir shu tanlangan. «Tayanch» — ko‘prikni ushlab turadi, u keyingi bosqichda kerak bo‘ladi.",
+        },
+        pickFirst: {
+          title: "1-qadam: A nuqta",
+          text: "Yo‘lni chap qirg‘oqdan boshlaymiz.",
+          cta: "A nuqtani bosing",
+        },
+        pickSecond: {
+          title: "2-qadam: B nuqta",
+          text: "Endi yo‘lni B gacha cho‘zamiz. Qarang, A bilan B orasida yo‘l paydo bo‘ladi!",
+          cta: "B nuqtani bosing",
+        },
+        edit: {
+          title: "Adashdingizmi? Zarari yo‘q!",
+          text: "«Ortga» oxirgi qadamni qaytaradi. «O‘chirish» tanlangan bo‘lakni olib tashlaydi. «Tozalash» hammasini boshidan boshlaydi. Material qaytib keladi.",
+        },
+        road: {
+          title: "Yo‘lni oxirigacha",
+          text: "Xuddi shunday davom eting. Har safar ikkita nuqtani ketma-ket bosing.",
+          cta: "B–C, C–D va D–E ni ulang",
+        },
+        camera: {
+          title: "Kamera",
+          text: "«3D» va «Old» tugmalari ko‘rinishni almashtiradi. Bo‘sh joyni tortsangiz, ko‘prik aylanadi.",
+        },
+        controls: {
+          title: "Ovoz va tanaffus",
+          text: "Bu yerda ovozni yoqasiz. Tanaffus o‘yinni to‘xtatadi, ko‘prigingiz joyida qoladi.",
+        },
+        test: {
+          title: "Sinab ko‘ramizmi?",
+          text: "Yo‘l tayyor! Mashina ko‘prikdan o‘ta oladimi? Tekshiramiz!",
+          cta: "«Ko‘prikni sinash» tugmasini bosing",
+        },
+      },
+      "bridge-02": {
+        new: {
+          title: "Yangi: tayanch nuqta!",
+          text: "Qarang, havoda F nuqta paydo bo‘ldi. Bu — tayanch nuqta: u yo‘lni yuqoridan ushlab turadi.",
+        },
+        road: {
+          title: "Avval yo‘l",
+          text: "Yo‘lni ikki bo‘lakda quramiz: A dan B ga, keyin B dan E ga.",
+          cta: "A–B va B–E ni ulang",
+        },
+        tool: {
+          title: "Tayanch asbobi",
+          text: "Endi «Tayanch» ni tanlaymiz. Bu asbob bilan ko‘prikni ushlab turuvchi chiziqlar quriladi.",
+          cta: "«Tayanch» tugmasini bosing",
+        },
+        supports: {
+          title: "F dan arqon tushiramiz",
+          text: "F ni A, B va E bilan ulang. Go‘yo F dan uchta arqon tushib turibdi.",
+          cta: "F–A, F–B va F–E ni ulang",
+        },
+        triangles: {
+          title: "Uchburchaklar!",
+          text: "Ko‘rdingizmi? Sariq uchburchaklar hosil bo‘ldi. Uchburchak — eng mustahkam shakl, shuning uchun ko‘prik tushmaydi.",
+        },
+        test: {
+          title: "Sinaymiz!",
+          text: "Ko‘prik tayyor. Tayanch yordam beradimi?",
+          cta: "«Ko‘prikni sinash» tugmasini bosing",
+        },
+      },
+      "bridge-03": {
+        idea: {
+          title: "Uchburchak siri",
+          text: "Yo‘l endi uzun: to‘rtta bo‘lak. Sir shunda: har bir bo‘lak tagida uchburchak bo‘lsa, ko‘prik mustahkam!",
+        },
+        road: {
+          title: "Yo‘lni quring",
+          text: "Avval to‘rtta yo‘l bo‘lagini ulang: A–B, B–C, C–D va D–E.",
+          cta: "Yo‘lni A dan E gacha ulang",
+        },
+        tool: {
+          title: "Tayanchga o‘tamiz",
+          text: "Endi «Tayanch» asbobini tanlang.",
+          cta: "«Tayanch» tugmasini bosing",
+        },
+        fan: {
+          title: "F dan hamma yoqqa",
+          text: "F ni har bir yo‘l nuqtasi bilan ulang. Ikki qo‘shni nuqta va F bitta uchburchak beradi.",
+          cta: "F ni A, B, C, D va E bilan ulang",
+        },
+        triangles: {
+          title: "To‘rtta uchburchak!",
+          text: "Mana sir: har bir yo‘l bo‘lagi tagida uchburchak bor. Ko‘prik juda mustahkam!",
+        },
+        star: {
+          title: "Tejamkor bo‘ling",
+          text: "3 yulduz uchun material sarfi shu yerdagi sondan oshmasin. Keraksiz bo‘lak qo‘shmang!",
+        },
+        test: {
+          title: "Sinaymiz!",
+          text: "Uchburchaklar tayyor. Mashina o‘tadimi?",
+          cta: "«Ko‘prikni sinash» tugmasini bosing",
+        },
+      },
+      "bridge-04": {
+        skip: {
+          title: "Material kam!",
+          text: "Bu safar material tanqis. B va D ni o‘tkazib yuboring: uzun bo‘laklar materialni tejaydi.",
+        },
+        road: {
+          title: "Uzun bo‘laklar",
+          text: "Yo‘lni A dan C ga, keyin C dan E ga ulang.",
+          cta: "A–C va C–E ni ulang",
+        },
+      },
+      "bridge-07": {
+        news: {
+          title: "Tayanch pastda!",
+          text: "F nuqta endi yo‘lning tagida. Pastdan qurilgan uchburchaklar ham ko‘prikni mustahkamlaydi.",
+        },
+      },
+      "bridge-10": {
+        news: {
+          title: "Ikkita tayanch nuqta",
+          text: "Endi F va G bor: F chap yarmiga, G o‘ng yarmiga yordam beradi.",
+        },
+      },
+      "bridge-12": {
+        news: {
+          title: "Yo‘l qisman tayyor",
+          text: "A–B va D–E yo‘llari oldindan qurilgan. Ularga material ketmaydi. O‘rtasini o‘zingiz quring.",
+        },
+      },
+      "bridge-17": {
+        news: {
+          title: "Tayanchlar tayyor",
+          text: "A–F va E–H tayanchlari oldindan qurilgan, material ketmaydi. Qolgan yo‘l nuqtalarini shu tayanchlarga ulang.",
+        },
+      },
+    },
   },
 };

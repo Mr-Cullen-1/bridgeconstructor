@@ -35,6 +35,8 @@ E2E konfiguratsiyasi o‘rnatilgan **Google Chrome** va **Microsoft Edge** bilan
 
 Klaviatura: **Tab** fokus, **Enter/Space** tanlash, **Esc** tanlovni bekor qilish, **Delete/Backspace** tanlangan kesmani o‘chirish, **Ctrl/Cmd+Z** undo. Touch ham ikki marta ketma-ket nuqta tanlash orqali ishlaydi; drag shart emas.
 
+**Ko‘rsatma (onboarding).** Kirish oynasidan keyin birinchi marta o‘ynaganda robot haqiqiy tugmalar va nuqtalar ustida spotlight bilan o‘rgatadi: qo‘l ko‘rsatkichi, chizilib ko‘rsatiladigan namuna chiziqlar va tugma nomi bilan vazifa («A nuqtani bosing», «Ko‘prikni sinash» tugmasini bosing). Dars bosqichga bog‘langan (`onboarding/steps.js`): 1–3-bosqichlar to‘liq (nuqtalar → yo‘l → tayanch → uchburchak → sinash), 4, 7, 10, 12, 17-bosqichlarda esa nima yangi ekani haqida qisqa «YANGI!» eslatma. Dars faqat shu bosqich hali yakunlanmagan bo‘lsa va ko‘rilmagan bo‘lsa ochiladi; «O‘tkazib yuborish» barcha darslarni o‘chiradi. O‘yin brauzer xotirasiga yozmaydi (GameLab eksporti `localStorage`ni taqiqlaydi): ko‘rilgan darslarni host saqlaydi — `config.onboardingSeen` (dars id’lari, `"*"` = hammasi), `config.onOnboardingDone(lessonId)`, butunlay o‘chirish uchun `config.onboarding: false`. Standalone ilova (`src/App.jsx`) buni `localStorage`da saqlaydi; `?tour` hamma darsni qayta ko‘rsatadi. Testlar: `tests/e2e/onboarding.spec.js`.
+
 Pause va yashirin browser tab vaqtni/animatsiyani to‘xtatadi. Sound dastlab o‘chiq; yoqilganda yengil sintezlangan UI ovozi mavjud. Reduced-motion sozlamasi animatsiyani qisqartiradi.
 
 ## Arxitektura

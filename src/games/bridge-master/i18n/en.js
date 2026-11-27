@@ -238,5 +238,165 @@ export const en = {
     budget: "Material",
     starGoal: "For 3 stars",
     tip: "Tip",
+    tourNote: "The robot will show you the game step by step, right on the buttons and points.",
+  },
+  // Guided lessons: every step points at the real element it talks about (see onboarding/steps.js).
+  tour: {
+    label: "Game tutorial",
+    skip: "Skip",
+    next: "Got it",
+    fresh: "NEW!",
+    stepOf: (n, total) => `${n} / ${total}`,
+    lessons: {
+      "bridge-01": {
+        goal: {
+          title: "Let’s build a bridge!",
+          text: "We will build a bridge from the left bank (A) to the right bank (E). The car will drive across it.",
+        },
+        level: {
+          title: "This is the level",
+          text: "Here you see the level number and name. There are 20 levels in all. The button on the left lets you pick any level.",
+        },
+        budget: {
+          title: "Material is your wallet",
+          text: "Every piece of road uses material. When it runs out, you cannot add more pieces. Use less than the number below and you earn 3 stars!",
+        },
+        tools: {
+          title: "Two tools",
+          text: "“Road” is the part the car drives on, and it is chosen now. “Support” holds the bridge up; you will need it in the next level.",
+        },
+        pickFirst: {
+          title: "Step 1: point A",
+          text: "We start the road on the left bank.",
+          cta: "Tap point A",
+        },
+        pickSecond: {
+          title: "Step 2: point B",
+          text: "Now we stretch the road to B. Look, a road appears between A and B!",
+          cta: "Tap point B",
+        },
+        edit: {
+          title: "Made a mistake? No problem!",
+          text: "“Undo” takes back your last step. “Remove” deletes the chosen piece. “Clear” starts over. The material comes back.",
+        },
+        road: {
+          title: "Finish the road",
+          text: "Keep going the same way. Each time, tap two points one after the other.",
+          cta: "Connect B–C, C–D and D–E",
+        },
+        camera: {
+          title: "Camera",
+          text: "The “3D” and “Front” buttons change the view. Drag an empty spot and the bridge turns around.",
+        },
+        controls: {
+          title: "Sound and pause",
+          text: "Turn the sound on here. Pause stops the game and your bridge stays where it is.",
+        },
+        test: {
+          title: "Shall we test it?",
+          text: "The road is ready! Can the car drive across? Let’s find out!",
+          cta: "Tap the “Test the bridge” button",
+        },
+      },
+      "bridge-02": {
+        new: {
+          title: "New: a support point!",
+          text: "Look, a point F has appeared in the air. It is a support point: it holds the road up from above.",
+        },
+        road: {
+          title: "Road first",
+          text: "We build the road in two pieces: from A to B, then from B to E.",
+          cta: "Connect A–B and B–E",
+        },
+        tool: {
+          title: "The Support tool",
+          text: "Now we choose “Support”. With this tool we build the lines that hold the bridge up.",
+          cta: "Tap the “Support” button",
+        },
+        supports: {
+          title: "Lower ropes from F",
+          text: "Connect F to A, B and E. It is like three ropes hanging down from F.",
+          cta: "Connect F–A, F–B and F–E",
+        },
+        triangles: {
+          title: "Triangles!",
+          text: "See that? Yellow triangles appeared. A triangle is the strongest shape, so the bridge will not fall.",
+        },
+        test: {
+          title: "Let’s test it!",
+          text: "The bridge is ready. Will the support help?",
+          cta: "Tap the “Test the bridge” button",
+        },
+      },
+      "bridge-03": {
+        idea: {
+          title: "The triangle secret",
+          text: "The road is longer now: four pieces. Here is the secret: when every piece has a triangle under it, the bridge is strong!",
+        },
+        road: {
+          title: "Build the road",
+          text: "First connect the four road pieces: A–B, B–C, C–D and D–E.",
+          cta: "Connect the road from A to E",
+        },
+        tool: {
+          title: "On to supports",
+          text: "Now choose the “Support” tool.",
+          cta: "Tap the “Support” button",
+        },
+        fan: {
+          title: "From F in every direction",
+          text: "Connect F to every road point. Two neighbouring points and F make one triangle.",
+          cta: "Connect F to A, B, C, D and E",
+        },
+        triangles: {
+          title: "Four triangles!",
+          text: "There is the secret: every piece of road has a triangle under it. The bridge is very strong!",
+        },
+        star: {
+          title: "Save material",
+          text: "For 3 stars, keep the material used below this number. Do not add extra pieces!",
+        },
+        test: {
+          title: "Let’s test it!",
+          text: "The triangles are ready. Will the car make it?",
+          cta: "Tap the “Test the bridge” button",
+        },
+      },
+      "bridge-04": {
+        skip: {
+          title: "Not much material!",
+          text: "This time material is short. Skip B and D: long pieces save material.",
+        },
+        road: {
+          title: "Long pieces",
+          text: "Connect the road from A to C, then from C to E.",
+          cta: "Connect A–C and C–E",
+        },
+      },
+      "bridge-07": {
+        news: {
+          title: "The support is below!",
+          text: "Point F is now under the road. Triangles built from below make the bridge strong too.",
+        },
+      },
+      "bridge-10": {
+        news: {
+          title: "Two support points",
+          text: "Now there are F and G: F helps the left half, G helps the right half.",
+        },
+      },
+      "bridge-12": {
+        news: {
+          title: "Part of the road is built",
+          text: "The roads A–B and D–E are already built and cost no material. Build the middle yourself.",
+        },
+      },
+      "bridge-17": {
+        news: {
+          title: "The supports are ready",
+          text: "The supports A–F and E–H are already built and cost no material. Connect the other road points to them.",
+        },
+      },
+    },
   },
 };

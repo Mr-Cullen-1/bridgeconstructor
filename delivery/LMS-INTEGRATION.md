@@ -138,6 +138,9 @@ Bu kod iframe runnerida ishlaydi; `bridge` quyidagi host transportidir. Callback
 | `config` | `{}`; oddiy rejimda embedded 20 bosqich ishlaydi |
 | `config.onEvent` | optional callback; analytics eventlari |
 | `config.edgeEvents` | `false`; true bo‘lsa kesma qo‘shish/o‘chirish eventlari |
+| `config.onboarding` | `false` bo‘lsa birinchi marta o‘ynaganda chiqadigan ko‘rsatma (robot darslari) o‘chadi. Berilmasa yoqiq |
+| `config.onboardingSeen` | ko‘rilgan dars id’lari massivi (masalan `["bridge-01"]`, `"*"` = hammasi). JSX brauzer xotirasiga yozmaydi — buni host saqlaydi |
+| `config.onOnboardingDone(lessonId)` | dars tugaganda (`"bridge-02"` …) yoki o‘quvchi «O‘tkazib yuborish»ni bosganda (`"*"`) chaqiriladi; hostda saqlang va keyingi mountda `onboardingSeen` ga bering |
 | `config.levels` | optional valid level array. Oddiy upload uchun berilmasin; fayldagi bosqichlar ishlasin |
 | `config.translations[lang]` | optional matn override’lari; default lug‘at saqlanadi |
 | `onFinished(result)` | optional; muvaffaqiyatli **bitta bosqich** yakunida |

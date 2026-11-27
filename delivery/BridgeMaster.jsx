@@ -28,7 +28,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 import * as React from "react";
-import { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 // src/games/bridge-master/engine/graph.js
 var getNodeById = (nodes, id) => nodes.find((n) => n.id === id);
 var getEdgeKey = (a, b) => JSON.stringify([a, b].sort());
@@ -2418,7 +2418,7 @@ function useSimulation({ run, phase, onComplete, reducedMotion = false }) {
 	const countdownMs = reducedMotion ? 0 : 3e3;
 	const travelMs = reducedMotion ? 600 : run?.durationMs ?? 0;
 	const failureProgress = run?.durationMs ? run.failureAtMs / run.durationMs : .5;
-	const end = run?.outcome.status === "failed" ? countdownMs + travelMs * failureProgress + (reducedMotion ? 150 : 700) : countdownMs + travelMs;
+	const end = run?.outcome.status === "failed" ? countdownMs + travelMs * failureProgress + (reducedMotion ? 150 : 1500) : countdownMs + travelMs;
 	useEffect(() => {
 		if (!run || phase !== "testing" || done.current) return;
 		let frameId, last = null, cancelled = false;
@@ -2453,12 +2453,184 @@ function useSimulation({ run, phase, onComplete, reducedMotion = false }) {
 		vehiclePose: getVehiclePose(run, progress),
 		countdown: run && phase === "testing" ? Math.max(0, Math.ceil((countdownMs - elapsedMs) / 1e3)) : 0,
 		broken,
-		collapseSeconds: broken ? reducedMotion ? .7 : Math.min(.7, (elapsedMs - countdownMs - travelMs * failureProgress) / 1e3) : 0
+		collapseSeconds: broken ? reducedMotion ? .7 : Math.min(1.5, (elapsedMs - countdownMs - travelMs * failureProgress) / 1e3) : 0
 	};
+}
+// src/games/bridge-master/scene/sfx.js
+function tone(ctx, { freq, to = freq, dur = .12, type = "sine", gain = .05, delay = 0 }) {
+	const t = ctx.currentTime + delay;
+	const osc = ctx.createOscillator(), amp = ctx.createGain();
+	osc.type = type;
+	osc.frequency.setValueAtTime(freq, t);
+	osc.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + dur);
+	amp.gain.setValueAtTime(gain, t);
+	amp.gain.exponentialRampToValueAtTime(8e-4, t + dur);
+	osc.connect(amp);
+	amp.connect(ctx.destination);
+	osc.start(t);
+	osc.stop(t + dur + .02);
+}
+function burst(ctx, { dur = .15, cutoff = 900, gain = .08, delay = 0, type = "lowpass" }) {
+	const t = ctx.currentTime + delay;
+	const buffer = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * dur)), ctx.sampleRate);
+	const data = buffer.getChannelData(0);
+	for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+	const source = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), amp = ctx.createGain();
+	source.buffer = buffer;
+	filter.type = type;
+	filter.frequency.value = cutoff;
+	amp.gain.setValueAtTime(gain, t);
+	amp.gain.exponentialRampToValueAtTime(8e-4, t + dur);
+	source.connect(filter);
+	filter.connect(amp);
+	amp.connect(ctx.destination);
+	source.start(t);
+}
+var sounds = {
+	click: (c) => tone(c, {
+		freq: 640,
+		to: 520,
+		dur: .06,
+		type: "triangle",
+		gain: .04
+	}),
+	select: (c) => tone(c, {
+		freq: 760,
+		to: 900,
+		dur: .07,
+		type: "triangle",
+		gain: .045
+	}),
+	place: (c) => {
+		burst(c, {
+			dur: .09,
+			cutoff: 1100,
+			gain: .09
+		});
+		tone(c, {
+			freq: 170,
+			to: 90,
+			dur: .12,
+			type: "sine",
+			gain: .09
+		});
+	},
+	undo: (c) => tone(c, {
+		freq: 460,
+		to: 280,
+		dur: .12,
+		type: "triangle",
+		gain: .05
+	}),
+	error: (c) => {
+		tone(c, {
+			freq: 190,
+			to: 130,
+			dur: .16,
+			type: "sawtooth",
+			gain: .035
+		});
+		tone(c, {
+			freq: 150,
+			to: 100,
+			dur: .18,
+			type: "sawtooth",
+			gain: .035,
+			delay: .1
+		});
+	},
+	tick: (c) => tone(c, {
+		freq: 520,
+		dur: .1,
+		type: "square",
+		gain: .03
+	}),
+	go: (c) => {
+		tone(c, {
+			freq: 780,
+			dur: .18,
+			type: "square",
+			gain: .035
+		});
+		tone(c, {
+			freq: 1170,
+			dur: .26,
+			type: "square",
+			gain: .03,
+			delay: .1
+		});
+	},
+	honk: (c) => {
+		tone(c, {
+			freq: 330,
+			dur: .22,
+			type: "sawtooth",
+			gain: .03
+		});
+		tone(c, {
+			freq: 415,
+			dur: .22,
+			type: "sawtooth",
+			gain: .025
+		});
+	},
+	crash: (c) => {
+		burst(c, {
+			dur: .7,
+			cutoff: 700,
+			gain: .16
+		});
+		tone(c, {
+			freq: 140,
+			to: 38,
+			dur: .6,
+			type: "sawtooth",
+			gain: .08
+		});
+	},
+	splash: (c) => burst(c, {
+		dur: .45,
+		cutoff: 3200,
+		gain: .07,
+		type: "highpass"
+	}),
+	success: (c) => {
+		[
+			523,
+			659,
+			784,
+			1047
+		].forEach((freq, i) => tone(c, {
+			freq,
+			dur: .22,
+			type: "triangle",
+			gain: .05,
+			delay: i * .11
+		}));
+		tone(c, {
+			freq: 1568,
+			dur: .5,
+			type: "sine",
+			gain: .035,
+			delay: .5
+		});
+	},
+	star: (c) => tone(c, {
+		freq: 1175,
+		to: 1480,
+		dur: .18,
+		type: "sine",
+		gain: .05
+	})
+};
+function playSfx(context, name) {
+	try {
+		sounds[name]?.(context);
+	} catch {}
 }
 // src/games/bridge-master/hooks/usePreferences.js
 function usePreferences() {
-	const [reducedMotion, setReduced] = useState(false), [sound, setSound] = useState(false), audio = useRef(null);
+	const [reducedMotion, setReduced] = useState(false), [sound, setSound] = useState(false), audio = useRef(null), soundOn = useRef(false);
 	useEffect(() => {
 		const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
 		if (!media) return;
@@ -2470,19 +2642,13 @@ function usePreferences() {
 	useEffect(() => () => {
 		audio.current?.close().catch(() => {});
 	}, []);
-	function beep(frequency = 520) {
-		if (!audio.current || !sound) return;
-		try {
-			const context = audio.current, oscillator = context.createOscillator(), gain = context.createGain();
-			oscillator.frequency.value = frequency;
-			gain.gain.setValueAtTime(.025, context.currentTime);
-			gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + .09);
-			oscillator.connect(gain);
-			gain.connect(context.destination);
-			oscillator.start();
-			oscillator.stop(context.currentTime + .1);
-		} catch {}
-	}
+	useEffect(() => {
+		soundOn.current = sound;
+	}, [sound]);
+	const play = useCallback((name = "click") => {
+		if (!audio.current || !soundOn.current) return;
+		playSfx(audio.current, name);
+	}, []);
 	function toggleSound() {
 		if (!sound) {
 			const Audio = window.AudioContext || window.webkitAudioContext;
@@ -2497,7 +2663,7 @@ function usePreferences() {
 		reducedMotion,
 		sound,
 		toggleSound,
-		beep
+		play
 	};
 }
 // src/games/bridge-master/adapters/lmsAdapter.js
@@ -2600,6 +2766,808 @@ function useLmsEvents(state, { onFinished, onExit, onEvent, edgeEvents = false }
 		edgeEvents
 	]);
 	return adapter;
+}
+// src/games/bridge-master/hooks/useAttemptReporting.js
+var MODE_ID = "default";
+var reasons = {
+	roadGap: "road_gap",
+	noSupport: "no_support"
+};
+var seconds = (ms) => Number((Math.max(0, ms) / 1e3).toFixed(3));
+function useAttemptReporting(state, { onAttemptStart, onAttemptEnd }) {
+	const enabled = typeof onAttemptStart === "function";
+	const callbacks = useRef({
+		onAttemptStart,
+		onAttemptEnd
+	}), latest = useRef(state), registry = useRef(/* @__PURE__ */ new Map());
+	const [attempts, setAttempts] = useState([]);
+	useEffect(() => {
+		callbacks.current = {
+			onAttemptStart,
+			onAttemptEnd
+		};
+		latest.current = state;
+	});
+	const finish = useCallback((entry, snapshot) => {
+		entry.ended = true;
+		setAttempts((previous) => previous.map((attempt) => attempt.attemptId === entry.attemptId ? {
+			...attempt,
+			outcome: snapshot.outcome
+		} : attempt));
+		callbacks.current.onAttemptEnd?.(snapshot);
+	}, []);
+	useEffect(() => {
+		if (!enabled || state.phase !== "testing" || !state.runId) return;
+		const key = `${state.sessionId}:${state.runId}`;
+		if (registry.current.has(key)) return;
+		const entry = {
+			attemptId: crypto.randomUUID(),
+			levelId: state.level.id,
+			startActiveMs: latest.current.activeMs,
+			ended: false
+		};
+		registry.current.set(key, entry);
+		setAttempts((previous) => [...previous, {
+			attemptId: entry.attemptId,
+			levelId: entry.levelId,
+			number: previous.length + 1,
+			outcome: null
+		}]);
+		callbacks.current.onAttemptStart({
+			attemptId: entry.attemptId,
+			modeId: MODE_ID,
+			levelId: entry.levelId,
+			startedAt: (/* @__PURE__ */ new Date()).toISOString()
+		});
+	}, [
+		enabled,
+		state.phase,
+		state.runId,
+		state.sessionId,
+		state.level.id
+	]);
+	useEffect(() => {
+		if (!enabled || !state.result) return;
+		if (state.phase !== "success" && state.phase !== "failed") return;
+		const entry = registry.current.get(`${state.sessionId}:${state.runId}`);
+		if (!entry || entry.ended) return;
+		const { result } = state;
+		const success = result.status === "completed";
+		finish(entry, {
+			attemptId: entry.attemptId,
+			outcome: success ? "success" : "failure",
+			...success ? {} : { reason: reasons[state.run?.outcome.reasonCode] ?? "unstable" },
+			endedAt: result.completedAt,
+			durationSeconds: seconds(state.activeMs - entry.startActiveMs),
+			metrics: {
+				stars: result.stars,
+				score: result.score,
+				materialUsed: result.materialUsed,
+				stabilityScore: result.stabilityScore
+			},
+			data: {
+				attemptNumber: result.attempts,
+				edgesBuilt: state.playerEdges.length
+			}
+		});
+	}, [
+		enabled,
+		state,
+		finish
+	]);
+	return {
+		attempts,
+		abortActive: useCallback((reason = "player_exit") => {
+			const entry = [...registry.current.values()].find((e) => !e.ended);
+			if (!entry) return;
+			const current = latest.current;
+			finish(entry, {
+				attemptId: entry.attemptId,
+				outcome: "aborted",
+				reason,
+				endedAt: (/* @__PURE__ */ new Date()).toISOString(),
+				durationSeconds: seconds(current.activeMs - entry.startActiveMs),
+				metrics: { materialUsed: calculateTotalCost(current.playerEdges) },
+				data: { attemptNumber: current.attempts }
+			});
+		}, [finish]),
+		enabled
+	};
+}
+// src/games/bridge-master/onboarding/steps.js
+var node = (id) => `node-${id}`;
+var nodes$1 = (ids) => ids.map(node);
+var pairsOf = (ids) => ids.slice(1).map((id, i) => [ids[i], id]);
+var has = (state, [a, b]) => state.playerEdges.some((e) => e.id === getEdgeKey(a, b));
+var hasAll = (state, pairs) => pairs.every((pair) => has(state, pair));
+var lines = (pairs, type) => pairs.map(([from, to]) => ({
+	from,
+	to,
+	type
+}));
+var supportMode = ({ state }) => state.activeEdgeType === "support";
+var testStep = {
+	id: "test",
+	kind: "action",
+	targets: ["test"],
+	hand: "tap",
+	delay: 0,
+	done: ({ state }) => state.phase !== "building"
+};
+var toolStep = {
+	id: "tool",
+	kind: "action",
+	targets: ["tool-support"],
+	hand: "tap",
+	delay: 350,
+	done: supportMode
+};
+var needsSupportTool = { back: ({ state }) => state.activeEdgeType !== "support" };
+function firstBridge(level) {
+	const road = level.roadNodeIds;
+	const [first, second] = road;
+	return [
+		{
+			id: "goal",
+			kind: "info",
+			targets: [node(first), node(road.at(-1))]
+		},
+		{
+			id: "level",
+			kind: "info",
+			targets: ["level"]
+		},
+		{
+			id: "budget",
+			kind: "info",
+			targets: ["budget"]
+		},
+		{
+			id: "tools",
+			kind: "info",
+			targets: ["materials"]
+		},
+		{
+			id: "pickFirst",
+			kind: "action",
+			targets: [node(first)],
+			hand: "tap",
+			delay: 200,
+			done: ({ state }) => state.selectedNodeId === first || state.playerEdges.length > 0
+		},
+		{
+			id: "pickSecond",
+			kind: "action",
+			targets: [node(second)],
+			ghost: lines([[first, second]], "road"),
+			hand: "tap",
+			delay: 800,
+			done: ({ state }) => state.playerEdges.length > 0,
+			back: ({ state }) => state.playerEdges.length === 0 && state.selectedNodeId !== first
+		},
+		{
+			id: "edit",
+			kind: "info",
+			targets: ["edit"]
+		},
+		{
+			id: "road",
+			kind: "action",
+			targets: nodes$1(road),
+			ghost: lines(pairsOf(road).slice(1), "road"),
+			hand: "drag",
+			delay: 700,
+			done: ({ roadReady }) => roadReady
+		},
+		{
+			id: "camera",
+			kind: "info",
+			targets: ["camera"]
+		},
+		{
+			id: "controls",
+			kind: "info",
+			targets: ["controls"]
+		},
+		testStep
+	];
+}
+function supportsIntro() {
+	const roads = [["a", "b"], ["b", "e"]];
+	const ropes = [
+		["a", "f"],
+		["b", "f"],
+		["e", "f"]
+	];
+	return [
+		{
+			id: "new",
+			kind: "info",
+			targets: [node("f")]
+		},
+		{
+			id: "road",
+			kind: "action",
+			targets: nodes$1([
+				"a",
+				"b",
+				"e"
+			]),
+			ghost: lines(roads, "road"),
+			hand: "drag",
+			delay: 600,
+			done: ({ state }) => hasAll(state, roads)
+		},
+		toolStep,
+		{
+			id: "supports",
+			kind: "action",
+			targets: nodes$1([
+				"a",
+				"b",
+				"e",
+				"f"
+			]),
+			ghost: lines(ropes, "support"),
+			hand: "drag",
+			delay: 700,
+			done: ({ state }) => hasAll(state, ropes),
+			...needsSupportTool
+		},
+		{
+			id: "triangles",
+			kind: "info",
+			targets: nodes$1([
+				"a",
+				"b",
+				"e",
+				"f"
+			]),
+			shapes: [[
+				"a",
+				"b",
+				"f"
+			], [
+				"b",
+				"e",
+				"f"
+			]]
+		},
+		testStep
+	];
+}
+function triangleSecret(level) {
+	const road = level.roadNodeIds;
+	const roads = pairsOf(road);
+	const ropes = road.map((id) => [id, "f"]);
+	return [
+		{
+			id: "idea",
+			kind: "info",
+			targets: [...nodes$1(road), node("f")]
+		},
+		{
+			id: "road",
+			kind: "action",
+			targets: nodes$1(road),
+			ghost: lines(roads, "road"),
+			hand: "drag",
+			delay: 600,
+			done: ({ roadReady }) => roadReady
+		},
+		toolStep,
+		{
+			id: "fan",
+			kind: "action",
+			targets: [...nodes$1(road), node("f")],
+			ghost: lines(ropes, "support"),
+			hand: "drag",
+			delay: 700,
+			done: ({ state }) => hasAll(state, ropes),
+			...needsSupportTool
+		},
+		{
+			id: "triangles",
+			kind: "info",
+			targets: [...nodes$1(road), node("f")],
+			shapes: roads.map(([a, b]) => [
+				a,
+				b,
+				"f"
+			])
+		},
+		{
+			id: "star",
+			kind: "info",
+			targets: ["budget"]
+		},
+		testStep
+	];
+}
+function skipNodes() {
+	const roads = [["a", "c"], ["c", "e"]];
+	return [{
+		id: "skip",
+		kind: "info",
+		targets: nodes$1(["b", "d"])
+	}, {
+		id: "road",
+		kind: "action",
+		targets: nodes$1([
+			"a",
+			"c",
+			"e"
+		]),
+		ghost: lines(roads, "road"),
+		hand: "drag",
+		delay: 600,
+		done: ({ state }) => hasAll(state, roads)
+	}];
+}
+var note = (targets) => () => [{
+	id: "news",
+	kind: "info",
+	targets: nodes$1(targets)
+}];
+var lesson = (build, fresh = false) => Object.assign(build, { fresh });
+var LESSONS = {
+	"bridge-01": lesson(firstBridge),
+	"bridge-02": lesson(supportsIntro),
+	"bridge-03": lesson(triangleSecret),
+	"bridge-04": lesson(skipNodes, true),
+	"bridge-07": lesson(note(["f"]), true),
+	"bridge-10": lesson(note(["f", "g"]), true),
+	"bridge-12": lesson(note([
+		"a",
+		"b",
+		"d",
+		"e"
+	]), true),
+	"bridge-17": lesson(note([
+		"a",
+		"f",
+		"e",
+		"h"
+	]), true)
+};
+function lessonFor(level) {
+	const build = LESSONS[level?.id];
+	if (!build) return null;
+	const steps = build(level);
+	const ids = new Set(level.nodes.map((n) => n.id));
+	const known = (id) => ids.has(id);
+	return steps.every((s) => s.targets.every((t) => !t.startsWith("node-") || known(t.slice(5))) && (s.ghost ?? []).every((g) => known(g.from) && known(g.to)) && (s.shapes ?? []).every((shape) => shape.every(known))) ? {
+		id: level.id,
+		fresh: build.fresh,
+		steps
+	} : null;
+}
+var tourIsOver = (phase) => [
+	"testing",
+	"success",
+	"failed"
+].includes(phase);
+// src/games/bridge-master/hooks/useOnboarding.js
+var seenInPage = /* @__PURE__ */ new Set();
+var isSeen = (seen, id) => seen.has("*") || seen.has(id);
+function useOnboarding({ lesson, enabled, seen: hostSeen = [], ctx, onFinish }) {
+	const [finished, setFinished] = useState(() => new Set(seenInPage));
+	const [pos, setPos] = useState({
+		id: null,
+		index: 0
+	});
+	const running = Boolean(enabled && lesson && !isSeen(finished, lesson.id) && !isSeen(new Set(hostSeen), lesson.id));
+	const index = running && pos.id === lesson.id ? pos.index : 0;
+	const steps = lesson?.steps ?? [];
+	const step = running ? steps[index] : null;
+	const phase = ctx.state.phase;
+	const done = Boolean(step?.kind === "action" && step.done(ctx));
+	const stepBack = Boolean(step?.back?.(ctx)) && index > 0;
+	const over = running && tourIsOver(phase);
+	const finish = (id = lesson.id) => {
+		seenInPage.add(id);
+		setFinished(new Set(seenInPage));
+		onFinish?.(id);
+	};
+	const go = (to) => setPos({
+		id: lesson.id,
+		index: to
+	});
+	const next = () => index + 1 >= steps.length ? finish() : go(index + 1);
+	useEffect(() => {
+		if (!running) return;
+		if (over) {
+			const id = setTimeout(() => finish(), 0);
+			return () => clearTimeout(id);
+		}
+		if (stepBack) {
+			const id = setTimeout(() => go(index - 1), 0);
+			return () => clearTimeout(id);
+		}
+		if (done) {
+			const id = setTimeout(next, step.delay ?? 400);
+			return () => clearTimeout(id);
+		}
+	}, [
+		running,
+		over,
+		stepBack,
+		done,
+		index,
+		lesson?.id
+	]);
+	return {
+		running,
+		step,
+		index,
+		total: steps.length,
+		next,
+		skip: () => finish("*")
+	};
+}
+// src/games/bridge-master/onboarding/placement.js
+function placeCard(hole, size, view, { gap = 16, margin = 12 } = {}) {
+	const clampX = (x) => Math.max(margin, Math.min(x, view.w - size.w - margin));
+	const clampY = (y) => Math.max(margin, Math.min(y, view.h - size.h - margin));
+	if (!hole) return {
+		left: clampX((view.w - size.w) / 2),
+		top: clampY((view.h - size.h) / 2),
+		side: "center",
+		arrow: 0
+	};
+	const below = view.h - (hole.y + hole.h) - margin;
+	const above = hole.y - margin;
+	const need = size.h + gap;
+	const left = clampX(hole.x + hole.w / 2 - size.w / 2);
+	const arrow = Math.max(22, Math.min(size.w - 22, hole.x + hole.w / 2 - left));
+	const sides = below >= above ? ["bottom", "top"] : ["top", "bottom"];
+	for (const side of sides) if ((side === "bottom" ? below : above) >= need) return {
+		left,
+		top: side === "bottom" ? hole.y + hole.h + gap : hole.y - gap - size.h,
+		side: side === "bottom" ? "below" : "above",
+		arrow
+	};
+	const right = view.w - (hole.x + hole.w) - margin;
+	const leftRoom = hole.x - margin;
+	if (Math.max(right, leftRoom) >= size.w + gap) return {
+		left: right >= leftRoom ? hole.x + hole.w + gap : hole.x - gap - size.w,
+		top: clampY(hole.y + hole.h / 2 - size.h / 2),
+		side: "beside",
+		arrow: 0
+	};
+	return {
+		left,
+		top: clampY(below >= above ? hole.y + hole.h + gap : hole.y - gap - size.h),
+		side: "overlap",
+		arrow: 0
+	};
+}
+// src/games/bridge-master/assets/introAssets.js
+var robotWave = "data:image/webp;base64,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";
+var coinStar = "data:image/webp;base64,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";
+var purpleGem = "data:image/webp;base64,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";
+// src/games/bridge-master/components/Icon.jsx
+var paths = {
+	bridge: "M3 17h18M4 17V7m16 10V7M4 9c5 7 11 7 16 0M8 13v4m4-2v2m4-4v4",
+	road: "M3 8h18M3 16h18M6 12h2m4 0h2m4 0h2",
+	support: "M3 19 12 4l9 15H3Zm9-15v15",
+	undo: "M9 5 4 10l5 5M4 10h10a6 6 0 0 1 0 12",
+	trash: "M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7",
+	reset: "M4 10a8 8 0 1 1 1 9M4 4v6h6",
+	play: "m8 4 12 8-12 8V4Z",
+	pause: "M8 4v16M16 4v16",
+	sound: "M11 4 6 8H3v8h3l5 4V4Zm4 4a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14",
+	muted: "M11 4 6 8H3v8h3l5 4V4Zm5 5 5 6m0-6-5 6",
+	arrow: "M4 12h16m-6-6 6 6-6 6",
+	grid: "M3 3h6v6H3V3Zm12 0h6v6h-6V3ZM3 15h6v6H3v-6Zm12 0h6v6h-6v-6Z",
+	check: "m5 12 4 4L19 6",
+	close: "m6 6 12 12M6 18 18 6",
+	bulb: "M9 18h6m-6 3h6M8 15c-6-8 3-15 8-9 3 4 0 7-1 9H8Z",
+	star: "m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z",
+	flag: "M5 22V3m0 0h13l-3 4 3 4H5"
+};
+function Icon({ name, size = 20, ...props }) {
+	return /* @__PURE__ */ React.createElement("svg", {
+		width: size,
+		height: size,
+		viewBox: "0 0 24 24",
+		fill: "none",
+		stroke: "currentColor",
+		strokeWidth: "1.8",
+		strokeLinecap: "round",
+		strokeLinejoin: "round",
+		"aria-hidden": "true",
+		...props
+	}, /* @__PURE__ */ React.createElement("path", { d: paths[name] ?? paths.bridge }));
+}
+// src/games/bridge-master/components/Onboarding.jsx
+var PAD = 8;
+var round = Math.round;
+var same = (a, b) => a === b || a && b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+function Hand() {
+	return /* @__PURE__ */ React.createElement("svg", {
+		className: "tour-hand-art",
+		width: "46",
+		height: "58",
+		viewBox: "0 0 46 58",
+		"aria-hidden": "true",
+		focusable: "false"
+	}, /* @__PURE__ */ React.createElement("path", {
+		d: "M16 8a6 6 0 0 1 12 0v18l9.5-2.6a5 5 0 0 1 6 5.3l-1.4 15.6A12 12 0 0 1 30.2 55H23a12 12 0 0 1-9.6-4.8L5.4 39.5a4.6 4.6 0 0 1 7-5.8L16 38Z",
+		fill: "#fff",
+		stroke: "#4a2a12",
+		strokeWidth: "3",
+		strokeLinejoin: "round"
+	}), /* @__PURE__ */ React.createElement("path", {
+		d: "M22 28v8m6-8v8",
+		stroke: "#4a2a12",
+		strokeWidth: "2.4",
+		strokeLinecap: "round",
+		opacity: ".45"
+	}));
+}
+function useLayout(rootRef, cardRef, step) {
+	const [layout, setLayout] = useState({
+		hole: null,
+		card: null,
+		view: {
+			w: 0,
+			h: 0
+		},
+		art: null
+	});
+	const key = step.targets.join("|");
+	useEffect(() => {
+		let frame;
+		const measure = () => {
+			const root = rootRef.current;
+			if (root) {
+				const base = root.getBoundingClientRect();
+				let box = null;
+				for (const name of key.split("|")) {
+					const r = root.querySelector(`[data-tour="${name}"]`)?.getBoundingClientRect();
+					if (!r || !r.width && !r.height) continue;
+					box = box ? {
+						l: Math.min(box.l, r.left),
+						t: Math.min(box.t, r.top),
+						r: Math.max(box.r, r.right),
+						b: Math.max(box.b, r.bottom)
+					} : {
+						l: r.left,
+						t: r.top,
+						r: r.right,
+						b: r.bottom
+					};
+				}
+				const hole = box && {
+					x: round(box.l - base.left - PAD),
+					y: round(box.t - base.top - PAD),
+					w: round(box.r - box.l + 16),
+					h: round(box.b - box.t + 16)
+				};
+				const core = (id) => {
+					const r = root.querySelector(`[data-tour="node-${id}"] .node-core`)?.getBoundingClientRect();
+					return r && {
+						x: round(r.left + r.width / 2 - base.left),
+						y: round(r.top + r.height / 2 - base.top)
+					};
+				};
+				const lines = (step.ghost ?? []).flatMap((g) => {
+					const a = core(g.from), b = core(g.to);
+					return a && b ? [{
+						x1: a.x,
+						y1: a.y,
+						x2: b.x,
+						y2: b.y,
+						type: g.type
+					}] : [];
+				});
+				const shapes = (step.shapes ?? []).map((ids) => ids.map(core)).filter((pts) => pts.every(Boolean));
+				let hand = null;
+				if (step.kind === "action" && step.hand === "drag" && lines[0]) hand = {
+					x: lines[0].x1,
+					y: lines[0].y1,
+					dx: lines[0].x2 - lines[0].x1,
+					dy: lines[0].y2 - lines[0].y1,
+					drag: true
+				};
+				else if (step.kind === "action" && hole) {
+					const one = step.targets.length === 1 && step.targets[0].startsWith("node-") ? core(step.targets[0].slice(5)) : null;
+					hand = one ? {
+						...one,
+						drag: false
+					} : {
+						x: round(hole.x + hole.w / 2 + Math.min(hole.w / 5, 28)),
+						y: round(hole.y + hole.h / 2),
+						drag: false
+					};
+				}
+				const art = JSON.stringify({
+					lines,
+					shapes,
+					hand
+				});
+				const el = cardRef.current;
+				const card = el ? {
+					w: el.offsetWidth,
+					h: el.offsetHeight
+				} : null;
+				const view = {
+					w: round(base.width),
+					h: round(base.height)
+				};
+				setLayout((prev) => same(prev.hole, hole) && prev.art === art && prev.card?.w === card?.w && prev.card?.h === card?.h && prev.view.w === view.w && prev.view.h === view.h ? prev : {
+					hole,
+					card,
+					view,
+					art
+				});
+			}
+			frame = requestAnimationFrame(measure);
+		};
+		frame = requestAnimationFrame(measure);
+		return () => cancelAnimationFrame(frame);
+	}, [
+		rootRef,
+		cardRef,
+		key,
+		step.id
+	]);
+	return {
+		...layout,
+		...layout.art ? JSON.parse(layout.art) : {
+			lines: [],
+			shapes: [],
+			hand: null
+		}
+	};
+}
+function Onboarding({ rootRef, lessonId, fresh, step, index, total, t, onNext, onSkip }) {
+	const cardRef = useRef(null);
+	const nextRef = useRef(null);
+	const { hole, card, view, lines, shapes, hand } = useLayout(rootRef, cardRef, step);
+	const copy = t.tour.lessons?.[lessonId]?.[step.id];
+	const action = step.kind === "action";
+	const width = Math.min(360, Math.max(240, view.w - 24));
+	const place = card && view.w ? placeCard(hole, {
+		w: width,
+		h: card.h
+	}, view) : null;
+	useEffect(() => {
+		if (!action) nextRef.current?.focus({ preventScroll: true });
+	}, [action, step.id]);
+	if (!copy) return null;
+	return /* @__PURE__ */ React.createElement("div", {
+		className: "tour",
+		"data-step": step.id,
+		"data-lesson": lessonId
+	}, hole ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", {
+		className: "tour-block",
+		style: {
+			left: 0,
+			top: 0,
+			right: 0,
+			height: Math.max(0, hole.y)
+		}
+	}), /* @__PURE__ */ React.createElement("div", {
+		className: "tour-block",
+		style: {
+			left: 0,
+			right: 0,
+			top: hole.y + hole.h,
+			bottom: 0
+		}
+	}), /* @__PURE__ */ React.createElement("div", {
+		className: "tour-block",
+		style: {
+			left: 0,
+			top: hole.y,
+			width: Math.max(0, hole.x),
+			height: hole.h
+		}
+	}), /* @__PURE__ */ React.createElement("div", {
+		className: "tour-block",
+		style: {
+			left: hole.x + hole.w,
+			right: 0,
+			top: hole.y,
+			height: hole.h
+		}
+	}), !action && /* @__PURE__ */ React.createElement("div", {
+		className: "tour-block",
+		style: {
+			left: hole.x,
+			top: hole.y,
+			width: hole.w,
+			height: hole.h
+		}
+	}), /* @__PURE__ */ React.createElement("div", {
+		key: step.id,
+		className: "tour-hole",
+		style: {
+			left: hole.x,
+			top: hole.y,
+			width: hole.w,
+			height: hole.h
+		}
+	})) : /* @__PURE__ */ React.createElement("div", { className: "tour-block tour-dim" }), (lines.length > 0 || shapes.length > 0) && /* @__PURE__ */ React.createElement("svg", {
+		key: step.id,
+		className: "tour-art",
+		width: view.w,
+		height: view.h,
+		"aria-hidden": "true",
+		focusable: "false"
+	}, shapes.map((points, i) => /* @__PURE__ */ React.createElement("polygon", {
+		key: i,
+		className: "tour-shape",
+		style: { animationDelay: `${i * .35}s` },
+		points: points.map((p) => `${p.x},${p.y}`).join(" ")
+	})), lines.map((l, i) => /* @__PURE__ */ React.createElement("g", {
+		key: i,
+		className: `tour-ghost is-${l.type}`
+	}, /* @__PURE__ */ React.createElement("line", {
+		className: "tour-ghost-shadow",
+		x1: l.x1,
+		y1: l.y1,
+		x2: l.x2,
+		y2: l.y2,
+		pathLength: "1"
+	}), /* @__PURE__ */ React.createElement("line", {
+		className: "tour-ghost-line",
+		x1: l.x1,
+		y1: l.y1,
+		x2: l.x2,
+		y2: l.y2,
+		pathLength: "1"
+	})))), hand && /* @__PURE__ */ React.createElement("div", {
+		key: `${step.id}-${hand.drag}`,
+		className: `tour-hand ${hand.drag ? "is-drag" : "is-tap"}`,
+		style: {
+			left: hand.x,
+			top: hand.y,
+			"--dx": `${hand.dx ?? 0}px`,
+			"--dy": `${hand.dy ?? 0}px`
+		}
+	}, /* @__PURE__ */ React.createElement(Hand, null)), /* @__PURE__ */ React.createElement("section", {
+		ref: cardRef,
+		className: `tour-card ${place ? `is-${place.side}` : ""}`,
+		"aria-label": t.tour.label,
+		"aria-live": "polite",
+		style: {
+			width,
+			left: place?.left ?? 0,
+			top: place?.top ?? 0,
+			opacity: place ? 1 : 0,
+			"--arrow": `${place?.arrow ?? 0}px`
+		}
+	}, /* @__PURE__ */ React.createElement("header", { className: "tour-head" }, /* @__PURE__ */ React.createElement("img", {
+		className: "tour-avatar",
+		src: robotWave,
+		alt: "",
+		width: "52",
+		height: "52"
+	}), /* @__PURE__ */ React.createElement("div", { className: "tour-title" }, /* @__PURE__ */ React.createElement("span", { className: `tour-count ${fresh ? "is-new" : ""}` }, fresh ? t.tour.fresh : t.tour.stepOf(index + 1, total)), /* @__PURE__ */ React.createElement("h3", null, copy.title))), /* @__PURE__ */ React.createElement("p", { className: "tour-text" }, copy.text), action && /* @__PURE__ */ React.createElement("p", { className: "tour-do" }, /* @__PURE__ */ React.createElement(Icon, {
+		name: "play",
+		size: 14
+	}), copy.cta), /* @__PURE__ */ React.createElement("footer", { className: "tour-foot" }, /* @__PURE__ */ React.createElement("button", {
+		type: "button",
+		className: "tour-skip",
+		onClick: onSkip
+	}, t.tour.skip), !action && /* @__PURE__ */ React.createElement("button", {
+		type: "button",
+		ref: nextRef,
+		className: "tour-next",
+		onClick: onNext
+	}, t.tour.next, /* @__PURE__ */ React.createElement(Icon, {
+		name: "arrow",
+		size: 18
+	}))), !fresh && /* @__PURE__ */ React.createElement("div", {
+		className: "tour-dots",
+		"aria-hidden": "true"
+	}, Array.from({ length: total }, (_, i) => /* @__PURE__ */ React.createElement("i", {
+		key: i,
+		className: i < index ? "past" : i === index ? "now" : ""
+	})))));
 }
 // src/games/bridge-master/i18n/uz.js
 var uz = {
@@ -2746,8 +3714,1127 @@ var uz = {
 		noSupport: "Yo‘lga tayanch kerak. Ichki yo‘l nuqtalarini tayanchlar orqali qirg‘oqqa ulang.",
 		invalidConfig: "Bosqich ma’lumotlari noto‘g‘ri.",
 		invalidGraph: "Ko‘prik ma’lumotlari noto‘g‘ri."
+	},
+	levelTexts: {},
+	save: {
+		label: "Saqlash holati",
+		start: "Boshlanish",
+		result: "Natija",
+		idle: "Hali saqlanmagan",
+		saving: "Saqlanmoqda…",
+		queued: "Yuborish kutilmoqda",
+		saved: "Saqlandi",
+		error: "Saqlanmadi",
+		retry: "Qayta yuborish",
+		panelTitle: "Saqlash holati",
+		panelBody: "Har bir urinish alohida saqlanadi. Saqlanmaganlarini qayta yuborishingiz mumkin.",
+		pending: (n) => `${n} ta natija saqlanmagan`,
+		outcomes: {
+			success: "Muvaffaqiyatli",
+			failure: "Muvaffaqiyatsiz",
+			aborted: "To‘xtatildi",
+			active: "Davom etmoqda"
+		},
+		attemptRow: (n, level) => `${n}-urinish · ${level}`
+	},
+	intro: {
+		badge: "MATEMATIK GAMELAB",
+		title: "Bridge Master",
+		hello: "Salom!",
+		lead: "Ikki qirg‘oq orasiga ko‘prik quring, mashinani narigi tomonga o‘tkazing va 3 yulduz yig‘ing!",
+		howTitle: "Qanday o‘ynaladi?",
+		steps: [
+			{
+				title: "Nuqtalarni ulang",
+				text: "Ikki nuqtani ketma-ket bosing — yo‘l kesmasi paydo bo‘ladi."
+			},
+			{
+				title: "Tayanch qo‘shing",
+				text: "Uchburchaklar ko‘prikni mustahkam va tejamkor qiladi."
+			},
+			{
+				title: "Ko‘prikni sinang",
+				text: "Mashina narigi qirg‘oqqa o‘tsa — bosqich bajariladi."
+			}
+		],
+		facts: [
+			{
+				value: "20",
+				label: "bosqich"
+			},
+			{
+				value: "3",
+				label: "yulduz"
+			},
+			{
+				value: "∞",
+				label: "urinish"
+			}
+		],
+		mathLine: "Uzunlik, uchburchak va material hisobi — hammasi o‘yin ichida.",
+		levelBadge: (n, total) => `${n} / ${total} · BOSQICH`,
+		budget: "Material",
+		starGoal: "3 yulduz uchun",
+		tip: "Maslahat",
+		tourNote: "Robot o‘yinni qadam-baqadam, har bir tugma ustida ko‘rsatib beradi."
+	},
+	tour: {
+		label: "O‘yin bo‘yicha qo‘llanma",
+		skip: "O‘tkazib yuborish",
+		next: "Tushunarli",
+		fresh: "YANGI!",
+		stepOf: (n, total) => `${n} / ${total}`,
+		lessons: {
+			"bridge-01": {
+				goal: {
+					title: "Ko‘prik quramiz!",
+					text: "Chap qirg‘oqdan (A) o‘ng qirg‘oqqa (E) ko‘prik quramiz. Mashina shu yo‘ldan o‘tadi."
+				},
+				level: {
+					title: "Bu — bosqich",
+					text: "Bu yerda bosqich raqami va nomi ko‘rinadi. Hammasi bo‘lib 20 ta bosqich bor. Chap tugma bilan xohlagan bosqichni tanlaysiz."
+				},
+				budget: {
+					title: "Material — sizning hamyoningiz",
+					text: "Yo‘lning har bir bo‘lagi material sarflaydi. Material tugasa, yangi bo‘lak qo‘sha olmaysiz. Pastdagi sondan kam sarflasangiz — 3 yulduz!"
+				},
+				tools: {
+					title: "Ikkita asbob",
+					text: "«Yo‘l» — mashina yuradigan qism, hozir shu tanlangan. «Tayanch» — ko‘prikni ushlab turadi, u keyingi bosqichda kerak bo‘ladi."
+				},
+				pickFirst: {
+					title: "1-qadam: A nuqta",
+					text: "Yo‘lni chap qirg‘oqdan boshlaymiz.",
+					cta: "A nuqtani bosing"
+				},
+				pickSecond: {
+					title: "2-qadam: B nuqta",
+					text: "Endi yo‘lni B gacha cho‘zamiz. Qarang, A bilan B orasida yo‘l paydo bo‘ladi!",
+					cta: "B nuqtani bosing"
+				},
+				edit: {
+					title: "Adashdingizmi? Zarari yo‘q!",
+					text: "«Ortga» oxirgi qadamni qaytaradi. «O‘chirish» tanlangan bo‘lakni olib tashlaydi. «Tozalash» hammasini boshidan boshlaydi. Material qaytib keladi."
+				},
+				road: {
+					title: "Yo‘lni oxirigacha",
+					text: "Xuddi shunday davom eting. Har safar ikkita nuqtani ketma-ket bosing.",
+					cta: "B–C, C–D va D–E ni ulang"
+				},
+				camera: {
+					title: "Kamera",
+					text: "«3D» va «Old» tugmalari ko‘rinishni almashtiradi. Bo‘sh joyni tortsangiz, ko‘prik aylanadi."
+				},
+				controls: {
+					title: "Ovoz va tanaffus",
+					text: "Bu yerda ovozni yoqasiz. Tanaffus o‘yinni to‘xtatadi, ko‘prigingiz joyida qoladi."
+				},
+				test: {
+					title: "Sinab ko‘ramizmi?",
+					text: "Yo‘l tayyor! Mashina ko‘prikdan o‘ta oladimi? Tekshiramiz!",
+					cta: "«Ko‘prikni sinash» tugmasini bosing"
+				}
+			},
+			"bridge-02": {
+				new: {
+					title: "Yangi: tayanch nuqta!",
+					text: "Qarang, havoda F nuqta paydo bo‘ldi. Bu — tayanch nuqta: u yo‘lni yuqoridan ushlab turadi."
+				},
+				road: {
+					title: "Avval yo‘l",
+					text: "Yo‘lni ikki bo‘lakda quramiz: A dan B ga, keyin B dan E ga.",
+					cta: "A–B va B–E ni ulang"
+				},
+				tool: {
+					title: "Tayanch asbobi",
+					text: "Endi «Tayanch» ni tanlaymiz. Bu asbob bilan ko‘prikni ushlab turuvchi chiziqlar quriladi.",
+					cta: "«Tayanch» tugmasini bosing"
+				},
+				supports: {
+					title: "F dan arqon tushiramiz",
+					text: "F ni A, B va E bilan ulang. Go‘yo F dan uchta arqon tushib turibdi.",
+					cta: "F–A, F–B va F–E ni ulang"
+				},
+				triangles: {
+					title: "Uchburchaklar!",
+					text: "Ko‘rdingizmi? Sariq uchburchaklar hosil bo‘ldi. Uchburchak — eng mustahkam shakl, shuning uchun ko‘prik tushmaydi."
+				},
+				test: {
+					title: "Sinaymiz!",
+					text: "Ko‘prik tayyor. Tayanch yordam beradimi?",
+					cta: "«Ko‘prikni sinash» tugmasini bosing"
+				}
+			},
+			"bridge-03": {
+				idea: {
+					title: "Uchburchak siri",
+					text: "Yo‘l endi uzun: to‘rtta bo‘lak. Sir shunda: har bir bo‘lak tagida uchburchak bo‘lsa, ko‘prik mustahkam!"
+				},
+				road: {
+					title: "Yo‘lni quring",
+					text: "Avval to‘rtta yo‘l bo‘lagini ulang: A–B, B–C, C–D va D–E.",
+					cta: "Yo‘lni A dan E gacha ulang"
+				},
+				tool: {
+					title: "Tayanchga o‘tamiz",
+					text: "Endi «Tayanch» asbobini tanlang.",
+					cta: "«Tayanch» tugmasini bosing"
+				},
+				fan: {
+					title: "F dan hamma yoqqa",
+					text: "F ni har bir yo‘l nuqtasi bilan ulang. Ikki qo‘shni nuqta va F bitta uchburchak beradi.",
+					cta: "F ni A, B, C, D va E bilan ulang"
+				},
+				triangles: {
+					title: "To‘rtta uchburchak!",
+					text: "Mana sir: har bir yo‘l bo‘lagi tagida uchburchak bor. Ko‘prik juda mustahkam!"
+				},
+				star: {
+					title: "Tejamkor bo‘ling",
+					text: "3 yulduz uchun material sarfi shu yerdagi sondan oshmasin. Keraksiz bo‘lak qo‘shmang!"
+				},
+				test: {
+					title: "Sinaymiz!",
+					text: "Uchburchaklar tayyor. Mashina o‘tadimi?",
+					cta: "«Ko‘prikni sinash» tugmasini bosing"
+				}
+			},
+			"bridge-04": {
+				skip: {
+					title: "Material kam!",
+					text: "Bu safar material tanqis. B va D ni o‘tkazib yuboring: uzun bo‘laklar materialni tejaydi."
+				},
+				road: {
+					title: "Uzun bo‘laklar",
+					text: "Yo‘lni A dan C ga, keyin C dan E ga ulang.",
+					cta: "A–C va C–E ni ulang"
+				}
+			},
+			"bridge-07": { news: {
+				title: "Tayanch pastda!",
+				text: "F nuqta endi yo‘lning tagida. Pastdan qurilgan uchburchaklar ham ko‘prikni mustahkamlaydi."
+			} },
+			"bridge-10": { news: {
+				title: "Ikkita tayanch nuqta",
+				text: "Endi F va G bor: F chap yarmiga, G o‘ng yarmiga yordam beradi."
+			} },
+			"bridge-12": { news: {
+				title: "Yo‘l qisman tayyor",
+				text: "A–B va D–E yo‘llari oldindan qurilgan. Ularga material ketmaydi. O‘rtasini o‘zingiz quring."
+			} },
+			"bridge-17": { news: {
+				title: "Tayanchlar tayyor",
+				text: "A–F va E–H tayanchlari oldindan qurilgan, material ketmaydi. Qolgan yo‘l nuqtalarini shu tayanchlarga ulang."
+			} }
+		}
 	}
 };
+// src/games/bridge-master/i18n/ru.js
+var ru = {
+	brand: "Bridge Master",
+	academy: "JUNIOR · GAMELAB",
+	edition: "СТРОЙ. ПРОВЕРЯЙ. ОТКРЫВАЙ.",
+	workshop: "Мастерская строителей",
+	levelProgress: "Путь по уровням",
+	remaining: "Осталось материала",
+	yourGoal: "ЗАДАНИЕ НА СЕГОДНЯ",
+	goalBody: "Соедините два берега. Постройте прочный мост и доведите машину до цели.",
+	keyboardHint: "Ctrl + Z — отмена · Delete — удалить",
+	sceneTitle: "Строительная площадка",
+	sceneDetail: "Соединяйте точки. Проверяйте идею.",
+	nextStep: "СЛЕДУЮЩИЙ ШАГ",
+	buildFeedback: "НЕМНОГО ПОПРАВИМ",
+	adventureStart: "ПРИКЛЮЧЕНИЕ НАЧИНАЕТСЯ ЗДЕСЬ",
+	buildTools: "ИНСТРУМЕНТЫ СТРОЙКИ",
+	toolDescriptions: {
+		road: "Чтобы ехала машина",
+		support: "Чтобы мост держался"
+	},
+	toolShort: {
+		undo: "Назад",
+		remove: "Удалить",
+		reset: "Очистить"
+	},
+	yourJourney: "КАЖДЫЙ УРОВЕНЬ — НОВАЯ ИДЕЯ.",
+	previousPage: "Предыдущая страница",
+	nextPage: "Следующая страница",
+	levelPages: "Страницы уровней",
+	currentLevel: "Текущий",
+	levelComplete: "УРОВЕНЬ ПРОЙДЕН",
+	tryAgain: "КАЖДАЯ ПОПЫТКА — НОВЫЙ ОПЫТ",
+	activeTime: "Активное время",
+	seconds: "сек.",
+	collection: "Инженерное приключение",
+	camera: "Вид камеры",
+	worldName: "АЛЬПИЙСКАЯ ДОЛИНА · СТРОЙ. ПРОВЕРЯЙ. ОТКРЫВАЙ.",
+	depthView: "3D-вид",
+	frontView: "Вид спереди",
+	frontShort: "Спер.",
+	orbitHint: "Потяните пустое место, чтобы повернуть камеру",
+	webglError: "Не удалось открыть 3D-сцену. Включите аппаратное ускорение в браузере и обновите страницу.",
+	subtitle: "Каждый великий мост начинается с первой балки.",
+	level: "Уровень",
+	levels: "Уровни",
+	material: "Материал",
+	materialLabel: "Расход материала",
+	target: "Цель на 3 звезды",
+	road: "Дорога",
+	support: "Опора",
+	undo: "Отменить действие",
+	remove: "Удалить выбранный отрезок",
+	reset: "Построить заново — Очистить",
+	test: "Проверить мост",
+	pause: "Пауза",
+	resume: "Продолжить",
+	soundOn: "Включить звук",
+	soundOff: "Выключить звук",
+	start: "Начать стройку",
+	next: "Следующий уровень",
+	replay: "Сыграть ещё",
+	retry: "Улучшить мост",
+	exit: "Выйти из игры",
+	close: "Закрыть",
+	introTitle: "Маленький строитель, большие идеи.",
+	introBody: "Соединяйте точки, стройте мост и проведите машину на другой берег.",
+	introSteps: [
+		"Выберите первую точку",
+		"Соедините со следующей точкой",
+		"Проверьте готовый мост"
+	],
+	paused: "Отдохнём немного?",
+	pausedBody: "Ваш мост на месте. Продолжим, когда будете готовы.",
+	success: "Отличный мост!",
+	successBody: "Машина доехала до цели. У вас получилось!",
+	failed: "Есть другое решение!",
+	failedBody: "Отмеченное место слабое. Добавьте треугольную опору и проверьте снова.",
+	failureReasons: {
+		roadGap: "Машина не смогла проехать там, где дорога прерывается. Продолжите дорогу и попробуйте снова.",
+		noSupport: "Опор не хватило — мост не выдержал нагрузку. Добавьте опоры и попробуйте снова."
+	},
+	score: "Очки",
+	stability: "Прочность",
+	attempts: "Попытка",
+	used: "Потрачено",
+	hintFirst: "Нажмите точку A, затем точку B.",
+	hintNext: "Продолжайте дорогу — соединяйте соседние точки.",
+	hintTest: "Дорога готова! Теперь проверьте мост.",
+	hintSupport: "Постройте дорогу. В режиме «Опора» соединяйте верхние точки.",
+	levelHints: {
+		"bridge-04": "Точки B и D использовать не обязательно. «Дорога»: A–C, C–E. «Опора»: A–F, C–F, E–F. Не ставьте дорогу через B и D — иначе им тоже понадобятся опоры.",
+		"bridge-06": "Внутренние точки наклонной дороги тоже соедините с верхней опорой.",
+		"bridge-07": "Точка F ниже дороги. Треугольники, построенные снизу, тоже укрепляют мост.",
+		"bridge-08": "На подъёме и спуске дороги стройте треугольники.",
+		"bridge-09": "Не забудьте соединить с верхней опорой и самую низкую точку дороги.",
+		"bridge-10": "F помогает левой половине, G — правой. Средняя точка может связать обе опоры.",
+		"bridge-11": "Опоры не обязаны быть на одной высоте. Укрепите каждый участок дороги.",
+		"bridge-12": "Дороги A–B и D–E уже готовы. Они не расходуют ваш материал; постройте середину и опоры.",
+		"bridge-13": "Две нижние опоры соединят левую и правую половины моста.",
+		"bridge-14": "Длинные отрезки ограничены. Используйте соседние точки дороги и ближайшие опоры.",
+		"bridge-15": "Крайние опоры держат берега, а средняя объединяет центральную дорогу.",
+		"bridge-16": "Центральный узел G расположен низко. Укрепите середину перевала снизу, а края — сверху.",
+		"bridge-17": "Опоры A–F и E–H уже построены. Подключите к этой системе остальные точки дороги.",
+		"bridge-18": "Включите каждый отрезок дороги в треугольник. На лишние опоры материала мало.",
+		"bridge-19": "Использовать все узлы не обязательно. Пропустите B и D и попробуйте короткую систему опор через H.",
+		"bridge-20": "Соберите всё, чему научились: три опоры, цельная дорога и точный план без лишних отрезков."
+	},
+	chooseNext: "Теперь выберите вторую точку.",
+	selectedEdge: "Отрезок выбран. Его можно удалить.",
+	testing: "Мост проходит испытание…",
+	building: "Режим стройки",
+	ready: "Готовы?",
+	startFlag: "СТАРТ",
+	finishFlag: "ФИНИШ",
+	wood: "Дерево",
+	singleMaterial: "Один материал. Бесконечные идеи.",
+	legendAnchor: "Прочная опора",
+	legendNode: "Точка соединения",
+	legendRoad: "Дорога для машины",
+	footer: "Приключение, построенное на математике",
+	local: "Автономная демо-версия",
+	chooseLevel: "Выберите приключение",
+	chooseLevelBody: "Каждый уровень — новая идея. Начинайте с любого.",
+	exited: "До новых встреч!",
+	exitBody: "Мы всегда готовы вернуться к вашим мостам.",
+	back: "Вернуться в игру",
+	configError: "Не удалось открыть уровень. Проверьте конфигурацию.",
+	node: (id) => `Точка ${id.toUpperCase()}`,
+	edge: (a, b) => `Отрезок ${a.toUpperCase()}–${b.toUpperCase()}`,
+	levelLabel: (i, title) => `Уровень ${i}: ${title}`,
+	stars: (n) => `Звёзд: ${n}`,
+	messages: {
+		unknownNode: "Эта точка не найдена.",
+		sameNode: "Выберите другую точку.",
+		invalidType: "Такого типа материала нет.",
+		duplicate: "Эти точки уже соединены.",
+		roadOnly: "Дорогу можно строить только между точками дороги.",
+		zeroLength: "Неверная длина отрезка.",
+		tooLong: "Этот отрезок слишком длинный. Выберите точку поближе.",
+		budget: "Материала не хватает. Уберите один отрезок или выберите путь короче.",
+		roadGap: "Дорога пока прервана. Полностью соедините два берега.",
+		noSupport: "Дороге нужна опора. Свяжите внутренние точки дороги с берегом через опоры.",
+		invalidConfig: "Данные уровня неверны.",
+		invalidGraph: "Данные моста неверны."
+	},
+	levelTexts: {
+		"bridge-01": {
+			title: "Первый мост",
+			subtitle: "Соедините два берега"
+		},
+		"bridge-02": {
+			title: "Сила опоры",
+			subtitle: "Дайте дороге прочную опору"
+		},
+		"bridge-03": {
+			title: "Тайна треугольника",
+			subtitle: "Треугольники укрепляют мост"
+		},
+		"bridge-04": {
+			title: "Мудрый строитель",
+			subtitle: "Меньше материала — лучше решение"
+		},
+		"bridge-05": {
+			title: "Новые вершины",
+			subtitle: "Найдите путь среди высот"
+		},
+		"bridge-06": {
+			title: "Дорога вниз",
+			subtitle: "Укрепите каждый отрезок склона"
+		},
+		"bridge-07": {
+			title: "Нижняя опора",
+			subtitle: "Попробуйте построить опору под дорогой"
+		},
+		"bridge-08": {
+			title: "Мягкий перевал",
+			subtitle: "Объедините подъём и спуск в один мост"
+		},
+		"bridge-09": {
+			title: "У подножия долины",
+			subtitle: "Удержите дорогу над впадиной"
+		},
+		"bridge-10": {
+			title: "Два крыла",
+			subtitle: "Дайте каждой половине моста свою опору"
+		},
+		"bridge-11": {
+			title: "Горная дорога",
+			subtitle: "Соедините опоры разной высоты"
+		},
+		"bridge-12": {
+			title: "Продолжи стройку",
+			subtitle: "Соедините готовые участки дороги"
+		},
+		"bridge-13": {
+			title: "Помощь снизу",
+			subtitle: "Укрепите дорогу двумя нижними узлами"
+		},
+		"bridge-14": {
+			title: "Неровные берега",
+			subtitle: "Постройте неровную дорогу короткими отрезками"
+		},
+		"bridge-15": {
+			title: "Три опоры",
+			subtitle: "Распределите задачу между тремя узлами опоры"
+		},
+		"bridge-16": {
+			title: "Мастер перевала",
+			subtitle: "Используйте верхние и нижние опоры вместе"
+		},
+		"bridge-17": {
+			title: "Готовый фундамент",
+			subtitle: "Разумно используйте уже построенные опоры"
+		},
+		"bridge-18": {
+			title: "Цепь высот",
+			subtitle: "Постройте цельную систему опор на трёх высотах"
+		},
+		"bridge-19": {
+			title: "Бережливая дорога",
+			subtitle: "Отбросьте лишние узлы и сэкономьте материал"
+		},
+		"bridge-20": {
+			title: "Мастер-инженер",
+			subtitle: "Последний мост: точный план, прочный результат"
+		}
+	},
+	save: {
+		label: "Состояние сохранения",
+		start: "Начало",
+		result: "Результат",
+		idle: "Ещё не сохранено",
+		saving: "Сохранение…",
+		queued: "Ожидает отправки",
+		saved: "Сохранено",
+		error: "Не сохранено",
+		retry: "Повторить отправку",
+		panelTitle: "Состояние сохранения",
+		panelBody: "Каждая попытка сохраняется отдельно. Несохранённые можно отправить повторно.",
+		pending: (n) => `Не сохранено результатов: ${n}`,
+		outcomes: {
+			success: "Успешно",
+			failure: "Неудачно",
+			aborted: "Прервано",
+			active: "Идёт"
+		},
+		attemptRow: (n, level) => `Попытка ${n} · ${level}`
+	},
+	intro: {
+		badge: "МАТЕМАТИЧЕСКИЙ GAMELAB",
+		title: "Bridge Master",
+		hello: "Привет!",
+		lead: "Постройте мост между двумя берегами, проведите машину на другую сторону и соберите 3 звезды!",
+		howTitle: "Как играть?",
+		steps: [
+			{
+				title: "Соединяйте точки",
+				text: "Нажмите две точки подряд — появится отрезок дороги."
+			},
+			{
+				title: "Добавьте опоры",
+				text: "Треугольники делают мост прочным и экономным."
+			},
+			{
+				title: "Проверьте мост",
+				text: "Если машина проедет на другой берег — уровень пройден."
+			}
+		],
+		facts: [
+			{
+				value: "20",
+				label: "уровней"
+			},
+			{
+				value: "3",
+				label: "звезды"
+			},
+			{
+				value: "∞",
+				label: "попыток"
+			}
+		],
+		mathLine: "Длина, треугольники и расчёт материала — всё прямо в игре.",
+		levelBadge: (n, total) => `УРОВЕНЬ ${n} / ${total}`,
+		budget: "Материал",
+		starGoal: "Для 3 звёзд",
+		tip: "Подсказка",
+		tourNote: "Робот шаг за шагом покажет игру прямо на кнопках и точках."
+	},
+	tour: {
+		label: "Обучение по игре",
+		skip: "Пропустить",
+		next: "Понятно",
+		fresh: "НОВОЕ!",
+		stepOf: (n, total) => `${n} / ${total}`,
+		lessons: {
+			"bridge-01": {
+				goal: {
+					title: "Строим мост!",
+					text: "Мы построим мост с левого берега (A) на правый (E). Машина проедет по нему."
+				},
+				level: {
+					title: "Это уровень",
+					text: "Здесь номер и название уровня. Всего 20 уровней. Кнопкой слева можно выбрать любой."
+				},
+				budget: {
+					title: "Материал — ваш кошелёк",
+					text: "Каждый кусок дороги тратит материал. Когда он закончится, новый кусок не добавить. Потратите меньше числа внизу — получите 3 звезды!"
+				},
+				tools: {
+					title: "Два инструмента",
+					text: "«Дорога» — часть, по которой едет машина, она выбрана сейчас. «Опора» держит мост, она понадобится на следующем уровне."
+				},
+				pickFirst: {
+					title: "Шаг 1: точка A",
+					text: "Начнём дорогу с левого берега.",
+					cta: "Нажмите точку A"
+				},
+				pickSecond: {
+					title: "Шаг 2: точка B",
+					text: "Теперь дотянем дорогу до B. Смотрите, между A и B появится дорога!",
+					cta: "Нажмите точку B"
+				},
+				edit: {
+					title: "Ошиблись? Не беда!",
+					text: "«Назад» отменяет последний шаг. «Удалить» убирает выбранный кусок. «Очистить» начинает всё заново. Материал вернётся."
+				},
+				road: {
+					title: "Дорога до конца",
+					text: "Продолжайте так же. Каждый раз нажимайте две точки подряд.",
+					cta: "Соедините B–C, C–D и D–E"
+				},
+				camera: {
+					title: "Камера",
+					text: "Кнопки «3D» и «Спер.» меняют вид. Потяните пустое место — мост повернётся."
+				},
+				controls: {
+					title: "Звук и пауза",
+					text: "Здесь включается звук. Пауза останавливает игру, а мост остаётся на месте."
+				},
+				test: {
+					title: "Проверим?",
+					text: "Дорога готова! Сможет ли машина проехать? Давайте проверим!",
+					cta: "Нажмите кнопку «Проверить мост»"
+				}
+			},
+			"bridge-02": {
+				new: {
+					title: "Новое: опорная точка!",
+					text: "Смотрите, в воздухе появилась точка F. Это опорная точка: она держит дорогу сверху."
+				},
+				road: {
+					title: "Сначала дорога",
+					text: "Дорогу строим из двух кусков: от A до B, потом от B до E.",
+					cta: "Соедините A–B и B–E"
+				},
+				tool: {
+					title: "Инструмент «Опора»",
+					text: "Теперь выберем «Опору». Этим инструментом строятся линии, которые держат мост.",
+					cta: "Нажмите кнопку «Опора»"
+				},
+				supports: {
+					title: "Спускаем верёвки с F",
+					text: "Соедините F с A, B и E. Будто с F свисают три верёвки.",
+					cta: "Соедините F–A, F–B и F–E"
+				},
+				triangles: {
+					title: "Треугольники!",
+					text: "Видите? Получились жёлтые треугольники. Треугольник — самая прочная форма, поэтому мост не упадёт."
+				},
+				test: {
+					title: "Проверяем!",
+					text: "Мост готов. Поможет ли опора?",
+					cta: "Нажмите кнопку «Проверить мост»"
+				}
+			},
+			"bridge-03": {
+				idea: {
+					title: "Секрет треугольников",
+					text: "Дорога стала длиннее: четыре куска. Секрет такой: если под каждым куском есть треугольник, мост прочный!"
+				},
+				road: {
+					title: "Постройте дорогу",
+					text: "Сначала соедините четыре куска дороги: A–B, B–C, C–D и D–E.",
+					cta: "Соедините дорогу от A до E"
+				},
+				tool: {
+					title: "Переходим к опорам",
+					text: "Теперь выберите инструмент «Опора».",
+					cta: "Нажмите кнопку «Опора»"
+				},
+				fan: {
+					title: "От F во все стороны",
+					text: "Соедините F с каждой точкой дороги. Две соседние точки и F дают один треугольник.",
+					cta: "Соедините F с A, B, C, D и E"
+				},
+				triangles: {
+					title: "Четыре треугольника!",
+					text: "Вот и секрет: под каждым куском дороги есть треугольник. Мост очень прочный!"
+				},
+				star: {
+					title: "Будьте экономны",
+					text: "Для 3 звёзд расход материала не должен превышать это число. Не добавляйте лишнего!"
+				},
+				test: {
+					title: "Проверяем!",
+					text: "Треугольники готовы. Проедет ли машина?",
+					cta: "Нажмите кнопку «Проверить мост»"
+				}
+			},
+			"bridge-04": {
+				skip: {
+					title: "Материала мало!",
+					text: "В этот раз материала не хватает. Пропустите B и D: длинные куски экономят материал."
+				},
+				road: {
+					title: "Длинные куски",
+					text: "Соедините дорогу от A до C, а потом от C до E.",
+					cta: "Соедините A–C и C–E"
+				}
+			},
+			"bridge-07": { news: {
+				title: "Опора внизу!",
+				text: "Точка F теперь под дорогой. Треугольники снизу тоже делают мост прочнее."
+			} },
+			"bridge-10": { news: {
+				title: "Две опорные точки",
+				text: "Теперь есть F и G: F помогает левой половине, G — правой."
+			} },
+			"bridge-12": { news: {
+				title: "Дорога частично готова",
+				text: "Дороги A–B и D–E уже построены, материал на них не тратится. Середину стройте сами."
+			} },
+			"bridge-17": { news: {
+				title: "Опоры уже готовы",
+				text: "Опоры A–F и E–H уже построены, материал не тратится. Соедините остальные точки дороги с этими опорами."
+			} }
+		}
+	}
+};
+// src/games/bridge-master/i18n/en.js
+var en = {
+	brand: "Bridge Master",
+	academy: "JUNIOR · GAMELAB",
+	edition: "BUILD. TEST. DISCOVER.",
+	workshop: "Builders' workshop",
+	levelProgress: "Progress through levels",
+	remaining: "Material left",
+	yourGoal: "TODAY'S MISSION",
+	goalBody: "Connect the two banks. Build a strong bridge and get the car to the finish.",
+	keyboardHint: "Ctrl + Z — undo · Delete — remove",
+	sceneTitle: "Building site",
+	sceneDetail: "Connect the points. Test your idea.",
+	nextStep: "NEXT STEP",
+	buildFeedback: "LET'S ADJUST A BIT",
+	adventureStart: "THE ADVENTURE STARTS HERE",
+	buildTools: "BUILDING TOOLS",
+	toolDescriptions: {
+		road: "For the car to drive on",
+		support: "To hold the bridge up"
+	},
+	toolShort: {
+		undo: "Undo",
+		remove: "Remove",
+		reset: "Clear"
+	},
+	yourJourney: "EVERY LEVEL — A NEW IDEA.",
+	previousPage: "Previous page",
+	nextPage: "Next page",
+	levelPages: "Level pages",
+	currentLevel: "Current",
+	levelComplete: "LEVEL COMPLETE",
+	tryAgain: "EVERY TRY — NEW EXPERIENCE",
+	activeTime: "Active time",
+	seconds: "sec",
+	collection: "Engineering adventure",
+	camera: "Camera view",
+	worldName: "ALPINE VALLEY · BUILD. TEST. DISCOVER.",
+	depthView: "3D view",
+	frontView: "Front view",
+	frontShort: "Front",
+	orbitHint: "Drag an empty area to rotate the camera",
+	webglError: "The 3D scene could not be opened. Turn on hardware acceleration in your browser and reload the page.",
+	subtitle: "Every great bridge starts with a first beam.",
+	level: "Level",
+	levels: "Levels",
+	material: "Material",
+	materialLabel: "Material used",
+	target: "3-star target",
+	road: "Road",
+	support: "Support",
+	undo: "Undo last action",
+	remove: "Remove selected segment",
+	reset: "Rebuild — Clear",
+	test: "Test the bridge",
+	pause: "Pause",
+	resume: "Resume",
+	soundOn: "Turn sound on",
+	soundOff: "Turn sound off",
+	start: "Start building",
+	next: "Next level",
+	replay: "Play again",
+	retry: "Improve the bridge",
+	exit: "Exit the game",
+	close: "Close",
+	introTitle: "Little builder, big ideas.",
+	introBody: "Connect the points, build a bridge and drive the car to the other bank.",
+	introSteps: [
+		"Pick the first point",
+		"Connect it to the next point",
+		"Test the finished bridge"
+	],
+	paused: "Take a short break?",
+	pausedBody: "Your bridge is right here. We'll continue when you're ready.",
+	success: "Great bridge!",
+	successBody: "The car reached the finish. You did it!",
+	failed: "There's another solution!",
+	failedBody: "The marked spot is weak. Add a triangle support and test again.",
+	failureReasons: {
+		roadGap: "The car couldn't cross where the road breaks. Continue the road and try again.",
+		noSupport: "Not enough support — the bridge couldn't carry the load. Add supports and try again."
+	},
+	score: "Score",
+	stability: "Strength",
+	attempts: "Attempt",
+	used: "Used",
+	hintFirst: "Tap point A, then point B.",
+	hintNext: "Keep building the road — connect neighbouring points.",
+	hintTest: "The road is ready! Now test the bridge.",
+	hintSupport: "Build the road. In Support mode, connect the upper points.",
+	levelHints: {
+		"bridge-04": "You don't have to use points B and D. Road: A–C, C–E. Support: A–F, C–F, E–F. Don't route the road through B and D — otherwise they need supports too.",
+		"bridge-06": "Connect the inner points of the sloping road to the upper support as well.",
+		"bridge-07": "Point F is below the road. Triangles built from below strengthen the bridge too.",
+		"bridge-08": "Make triangles along the rising and falling parts of the road.",
+		"bridge-09": "Don't forget to connect the lowest road point to the upper support.",
+		"bridge-10": "F helps the left half, G helps the right half. The middle point can link both supports.",
+		"bridge-11": "Supports don't have to be at the same height. Strengthen every part of the road.",
+		"bridge-12": "Roads A–B and D–E are already built. They don't cost your material; build the middle and the supports.",
+		"bridge-13": "Use the two lower supports to join the left and right halves of the bridge.",
+		"bridge-14": "Long segments are limited. Use neighbouring road points and nearby supports.",
+		"bridge-15": "The outer supports hold the banks, and the middle one unites the central road.",
+		"bridge-16": "The central node G is low. Strengthen the middle of the pass from below and both ends from above.",
+		"bridge-17": "Supports A–F and E–H are already built. Connect the remaining road points to that system.",
+		"bridge-18": "Put every road segment into a triangle. There is little material for extra supports.",
+		"bridge-19": "You don't need every node. Skip B and D and try a shorter support system through H.",
+		"bridge-20": "Bring together what you've learned: three supports, a complete road and an exact plan with no extra segments."
+	},
+	chooseNext: "Now pick the second point.",
+	selectedEdge: "Segment selected. You can remove it.",
+	testing: "The bridge is being tested…",
+	building: "Building mode",
+	ready: "Ready?",
+	startFlag: "START",
+	finishFlag: "FINISH",
+	wood: "Wood",
+	singleMaterial: "One material. Endless ideas.",
+	legendAnchor: "Solid anchor",
+	legendNode: "Connection point",
+	legendRoad: "Road for the car",
+	footer: "An adventure built with mathematics",
+	local: "Standalone demo",
+	chooseLevel: "Choose your adventure",
+	chooseLevelBody: "Every level is a new idea. Start wherever you like.",
+	exited: "See you soon!",
+	exitBody: "We're always ready to get back to your bridges.",
+	back: "Back to the game",
+	configError: "This level could not be opened. Check the configuration.",
+	node: (id) => `Point ${id.toUpperCase()}`,
+	edge: (a, b) => `Segment ${a.toUpperCase()}–${b.toUpperCase()}`,
+	levelLabel: (i, title) => `Level ${i}: ${title}`,
+	stars: (n) => `${n} ${n === 1 ? "star" : "stars"}`,
+	messages: {
+		unknownNode: "That point was not found.",
+		sameNode: "Pick a different point.",
+		invalidType: "That material type doesn't exist.",
+		duplicate: "These points are already connected.",
+		roadOnly: "Build the road only between road points.",
+		zeroLength: "The segment length is not valid.",
+		tooLong: "That segment is too long. Pick a closer point.",
+		budget: "Not enough material. Remove a segment or choose a shorter route.",
+		roadGap: "The road is still broken. Connect the two banks completely.",
+		noSupport: "The road needs support. Connect the inner road points to the bank through supports.",
+		invalidConfig: "The level data is not valid.",
+		invalidGraph: "The bridge data is not valid."
+	},
+	levelTexts: {
+		"bridge-01": {
+			title: "First Bridge",
+			subtitle: "Connect the two banks"
+		},
+		"bridge-02": {
+			title: "Power of Support",
+			subtitle: "Give the road a strong support"
+		},
+		"bridge-03": {
+			title: "Triangle Secret",
+			subtitle: "Triangles make a bridge strong"
+		},
+		"bridge-04": {
+			title: "Smart Builder",
+			subtitle: "Less material, a better solution"
+		},
+		"bridge-05": {
+			title: "New Heights",
+			subtitle: "Find a path between the heights"
+		},
+		"bridge-06": {
+			title: "Road Downhill",
+			subtitle: "Strengthen every segment of the slope"
+		},
+		"bridge-07": {
+			title: "Support from Below",
+			subtitle: "Try building the support under the road"
+		},
+		"bridge-08": {
+			title: "Gentle Pass",
+			subtitle: "Join the climb and the descent in one bridge"
+		},
+		"bridge-09": {
+			title: "Valley Slope",
+			subtitle: "Hold up the road across the dip"
+		},
+		"bridge-10": {
+			title: "Two Wings",
+			subtitle: "Give each half of the bridge its own support"
+		},
+		"bridge-11": {
+			title: "Mountain Road",
+			subtitle: "Join supports of different heights"
+		},
+		"bridge-12": {
+			title: "Keep Building",
+			subtitle: "Connect the ready-made road pieces"
+		},
+		"bridge-13": {
+			title: "Help from Below",
+			subtitle: "Strengthen the road with two lower nodes"
+		},
+		"bridge-14": {
+			title: "Uneven Banks",
+			subtitle: "Build an uneven road with short segments"
+		},
+		"bridge-15": {
+			title: "Three Supports",
+			subtitle: "Share the job between three support nodes"
+		},
+		"bridge-16": {
+			title: "Pass Master",
+			subtitle: "Use upper and lower supports together"
+		},
+		"bridge-17": {
+			title: "Ready Foundation",
+			subtitle: "Make smart use of the pre-built supports"
+		},
+		"bridge-18": {
+			title: "Chain of Heights",
+			subtitle: "Build a continuous support system at three heights"
+		},
+		"bridge-19": {
+			title: "Thrifty Road",
+			subtitle: "Drop unneeded nodes and save material"
+		},
+		"bridge-20": {
+			title: "Master Engineer",
+			subtitle: "The final bridge: an exact plan, a strong result"
+		}
+	},
+	save: {
+		label: "Save status",
+		start: "Start",
+		result: "Result",
+		idle: "Not saved yet",
+		saving: "Saving…",
+		queued: "Waiting to send",
+		saved: "Saved",
+		error: "Not saved",
+		retry: "Retry saving",
+		panelTitle: "Save status",
+		panelBody: "Every attempt is saved separately. You can resend the ones that didn't save.",
+		pending: (n) => `${n} ${n === 1 ? "result" : "results"} not saved`,
+		outcomes: {
+			success: "Succeeded",
+			failure: "Failed",
+			aborted: "Stopped",
+			active: "In progress"
+		},
+		attemptRow: (n, level) => `Attempt ${n} · ${level}`
+	},
+	intro: {
+		badge: "MATH GAMELAB",
+		title: "Bridge Master",
+		hello: "Hi!",
+		lead: "Build a bridge between two banks, drive the car across and collect 3 stars!",
+		howTitle: "How to play",
+		steps: [
+			{
+				title: "Connect the points",
+				text: "Tap two points in a row — a road segment appears."
+			},
+			{
+				title: "Add supports",
+				text: "Triangles make the bridge strong and thrifty."
+			},
+			{
+				title: "Test the bridge",
+				text: "If the car reaches the other bank, the level is complete."
+			}
+		],
+		facts: [
+			{
+				value: "20",
+				label: "levels"
+			},
+			{
+				value: "3",
+				label: "stars"
+			},
+			{
+				value: "∞",
+				label: "tries"
+			}
+		],
+		mathLine: "Length, triangles and material budgeting — all inside the game.",
+		levelBadge: (n, total) => `LEVEL ${n} / ${total}`,
+		budget: "Material",
+		starGoal: "For 3 stars",
+		tip: "Tip",
+		tourNote: "The robot will show you the game step by step, right on the buttons and points."
+	},
+	tour: {
+		label: "Game tutorial",
+		skip: "Skip",
+		next: "Got it",
+		fresh: "NEW!",
+		stepOf: (n, total) => `${n} / ${total}`,
+		lessons: {
+			"bridge-01": {
+				goal: {
+					title: "Let’s build a bridge!",
+					text: "We will build a bridge from the left bank (A) to the right bank (E). The car will drive across it."
+				},
+				level: {
+					title: "This is the level",
+					text: "Here you see the level number and name. There are 20 levels in all. The button on the left lets you pick any level."
+				},
+				budget: {
+					title: "Material is your wallet",
+					text: "Every piece of road uses material. When it runs out, you cannot add more pieces. Use less than the number below and you earn 3 stars!"
+				},
+				tools: {
+					title: "Two tools",
+					text: "“Road” is the part the car drives on, and it is chosen now. “Support” holds the bridge up; you will need it in the next level."
+				},
+				pickFirst: {
+					title: "Step 1: point A",
+					text: "We start the road on the left bank.",
+					cta: "Tap point A"
+				},
+				pickSecond: {
+					title: "Step 2: point B",
+					text: "Now we stretch the road to B. Look, a road appears between A and B!",
+					cta: "Tap point B"
+				},
+				edit: {
+					title: "Made a mistake? No problem!",
+					text: "“Undo” takes back your last step. “Remove” deletes the chosen piece. “Clear” starts over. The material comes back."
+				},
+				road: {
+					title: "Finish the road",
+					text: "Keep going the same way. Each time, tap two points one after the other.",
+					cta: "Connect B–C, C–D and D–E"
+				},
+				camera: {
+					title: "Camera",
+					text: "The “3D” and “Front” buttons change the view. Drag an empty spot and the bridge turns around."
+				},
+				controls: {
+					title: "Sound and pause",
+					text: "Turn the sound on here. Pause stops the game and your bridge stays where it is."
+				},
+				test: {
+					title: "Shall we test it?",
+					text: "The road is ready! Can the car drive across? Let’s find out!",
+					cta: "Tap the “Test the bridge” button"
+				}
+			},
+			"bridge-02": {
+				new: {
+					title: "New: a support point!",
+					text: "Look, a point F has appeared in the air. It is a support point: it holds the road up from above."
+				},
+				road: {
+					title: "Road first",
+					text: "We build the road in two pieces: from A to B, then from B to E.",
+					cta: "Connect A–B and B–E"
+				},
+				tool: {
+					title: "The Support tool",
+					text: "Now we choose “Support”. With this tool we build the lines that hold the bridge up.",
+					cta: "Tap the “Support” button"
+				},
+				supports: {
+					title: "Lower ropes from F",
+					text: "Connect F to A, B and E. It is like three ropes hanging down from F.",
+					cta: "Connect F–A, F–B and F–E"
+				},
+				triangles: {
+					title: "Triangles!",
+					text: "See that? Yellow triangles appeared. A triangle is the strongest shape, so the bridge will not fall."
+				},
+				test: {
+					title: "Let’s test it!",
+					text: "The bridge is ready. Will the support help?",
+					cta: "Tap the “Test the bridge” button"
+				}
+			},
+			"bridge-03": {
+				idea: {
+					title: "The triangle secret",
+					text: "The road is longer now: four pieces. Here is the secret: when every piece has a triangle under it, the bridge is strong!"
+				},
+				road: {
+					title: "Build the road",
+					text: "First connect the four road pieces: A–B, B–C, C–D and D–E.",
+					cta: "Connect the road from A to E"
+				},
+				tool: {
+					title: "On to supports",
+					text: "Now choose the “Support” tool.",
+					cta: "Tap the “Support” button"
+				},
+				fan: {
+					title: "From F in every direction",
+					text: "Connect F to every road point. Two neighbouring points and F make one triangle.",
+					cta: "Connect F to A, B, C, D and E"
+				},
+				triangles: {
+					title: "Four triangles!",
+					text: "There is the secret: every piece of road has a triangle under it. The bridge is very strong!"
+				},
+				star: {
+					title: "Save material",
+					text: "For 3 stars, keep the material used below this number. Do not add extra pieces!"
+				},
+				test: {
+					title: "Let’s test it!",
+					text: "The triangles are ready. Will the car make it?",
+					cta: "Tap the “Test the bridge” button"
+				}
+			},
+			"bridge-04": {
+				skip: {
+					title: "Not much material!",
+					text: "This time material is short. Skip B and D: long pieces save material."
+				},
+				road: {
+					title: "Long pieces",
+					text: "Connect the road from A to C, then from C to E.",
+					cta: "Connect A–C and C–E"
+				}
+			},
+			"bridge-07": { news: {
+				title: "The support is below!",
+				text: "Point F is now under the road. Triangles built from below make the bridge strong too."
+			} },
+			"bridge-10": { news: {
+				title: "Two support points",
+				text: "Now there are F and G: F helps the left half, G helps the right half."
+			} },
+			"bridge-12": { news: {
+				title: "Part of the road is built",
+				text: "The roads A–B and D–E are already built and cost no material. Build the middle yourself."
+			} },
+			"bridge-17": { news: {
+				title: "The supports are ready",
+				text: "The supports A–F and E–H are already built and cost no material. Connect the other road points to them."
+			} }
+		}
+	}
+};
+// src/games/bridge-master/i18n/index.js
+var languages = [
+	"uz",
+	"ru",
+	"en"
+];
+var dictionaries = {
+	uz,
+	ru,
+	en
+};
+var normalizeLang = (lang) => languages.includes(lang) ? lang : "uz";
+function getDictionary(lang, overrides) {
+	const code = normalizeLang(lang);
+	return {
+		...uz,
+		...dictionaries[code],
+		...overrides?.[code]
+	};
+}
+var levelText = (level, t) => ({
+	title: t.levelTexts?.[level.id]?.title ?? level.title,
+	subtitle: t.levelTexts?.[level.id]?.subtitle ?? level.subtitle
+});
 /**
 * @license
 * Copyright 2010-2026 Three.js Authors
@@ -3344,6 +5431,14 @@ var KeepStencilOp = 7680;
 * @constant
 */
 var StaticDrawUsage = 35044;
+/**
+* The contents are intended to be respecified repeatedly by the application, and
+* used many times as the source for drawing and image specification commands.
+*
+* @type {number}
+* @constant
+*/
+var DynamicDrawUsage = 35048;
 /**
 * WebGL coordinate system.
 *
@@ -17746,6 +19841,298 @@ var DataTexture = class extends Texture {
 		this.unpackAlignment = 1;
 	}
 };
+/**
+* An instanced version of a buffer attribute.
+*
+* @augments BufferAttribute
+*/
+var InstancedBufferAttribute = class extends BufferAttribute {
+	/**
+	* Constructs a new instanced buffer attribute.
+	*
+	* @param {TypedArray} array - The array holding the attribute data.
+	* @param {number} itemSize - The item size.
+	* @param {boolean} [normalized=false] - Whether the data are normalized or not.
+	* @param {number} [meshPerAttribute=1] - How often a value of this buffer attribute should be repeated.
+	*/
+	constructor(array, itemSize, normalized, meshPerAttribute = 1) {
+		super(array, itemSize, normalized);
+		/**
+		* This flag can be used for type testing.
+		*
+		* @type {boolean}
+		* @readonly
+		* @default true
+		*/
+		this.isInstancedBufferAttribute = true;
+		/**
+		* Defines how often a value of this buffer attribute should be repeated. A
+		* value of one means that each value of the instanced attribute is used for
+		* a single instance. A value of two means that each value is used for two
+		* consecutive instances (and so on).
+		*
+		* @type {number}
+		* @default 1
+		*/
+		this.meshPerAttribute = meshPerAttribute;
+	}
+	copy(source) {
+		super.copy(source);
+		this.meshPerAttribute = source.meshPerAttribute;
+		return this;
+	}
+	toJSON() {
+		const data = super.toJSON();
+		data.meshPerAttribute = this.meshPerAttribute;
+		data.isInstancedBufferAttribute = true;
+		return data;
+	}
+};
+var _instanceLocalMatrix = /*@__PURE__*/ new Matrix4();
+var _instanceWorldMatrix = /*@__PURE__*/ new Matrix4();
+var _instanceIntersects = [];
+var _box3 = /*@__PURE__*/ new Box3();
+var _identity = /*@__PURE__*/ new Matrix4();
+var _mesh$1 = /*@__PURE__*/ new Mesh();
+var _sphere$4 = /*@__PURE__*/ new Sphere();
+/**
+* A special version of a mesh with instanced rendering support. Use
+* this class if you have to render a large number of objects with the same
+* geometry and material(s) but with different world transformations. The usage
+* of 'InstancedMesh' will help you to reduce the number of draw calls and thus
+* improve the overall rendering performance in your application.
+*
+* @augments Mesh
+*/
+var InstancedMesh = class extends Mesh {
+	/**
+	* Constructs a new instanced mesh.
+	*
+	* @param {BufferGeometry} [geometry] - The mesh geometry.
+	* @param {Material|Array<Material>} [material] - The mesh material.
+	* @param {number} count - The number of instances.
+	*/
+	constructor(geometry, material, count) {
+		super(geometry, material);
+		/**
+		* This flag can be used for type testing.
+		*
+		* @type {boolean}
+		* @readonly
+		* @default true
+		*/
+		this.isInstancedMesh = true;
+		/**
+		* Represents the local transformation of all instances. You have to set its
+		* {@link BufferAttribute#needsUpdate} flag to true if you modify instanced data
+		* via {@link InstancedMesh#setMatrixAt}.
+		*
+		* @type {InstancedBufferAttribute}
+		*/
+		this.instanceMatrix = new InstancedBufferAttribute(new Float32Array(count * 16), 16);
+		/**
+		* Represents the color of all instances. You have to set its
+		* {@link BufferAttribute#needsUpdate} flag to true if you modify instanced data
+		* via {@link InstancedMesh#setColorAt}.
+		*
+		* @type {?InstancedBufferAttribute}
+		* @default null
+		*/
+		this.instanceColor = null;
+		/**
+		* Represents the morph target weights of all instances. You have to set its
+		* {@link Texture#needsUpdate} flag to true if you modify instanced data
+		* via {@link InstancedMesh#setMorphAt}.
+		*
+		* @type {?DataTexture}
+		* @default null
+		*/
+		this.morphTexture = null;
+		/**
+		* The number of instances.
+		*
+		* @type {number}
+		*/
+		this.count = count;
+		/**
+		* The bounding box of the instanced mesh. Can be computed via {@link InstancedMesh#computeBoundingBox}.
+		*
+		* @type {?Box3}
+		* @default null
+		*/
+		this.boundingBox = null;
+		/**
+		* The bounding sphere of the instanced mesh. Can be computed via {@link InstancedMesh#computeBoundingSphere}.
+		*
+		* @type {?Sphere}
+		* @default null
+		*/
+		this.boundingSphere = null;
+		for (let i = 0; i < count; i++) this.setMatrixAt(i, _identity);
+	}
+	/**
+	* Computes the bounding box of the instanced mesh, and updates {@link InstancedMesh#boundingBox}.
+	* The bounding box is not automatically computed by the engine; this method must be called by your app.
+	* You may need to recompute the bounding box if an instance is transformed via {@link InstancedMesh#setMatrixAt}.
+	*/
+	computeBoundingBox() {
+		const geometry = this.geometry;
+		const count = this.count;
+		if (this.boundingBox === null) this.boundingBox = new Box3();
+		if (geometry.boundingBox === null) geometry.computeBoundingBox();
+		this.boundingBox.makeEmpty();
+		for (let i = 0; i < count; i++) {
+			this.getMatrixAt(i, _instanceLocalMatrix);
+			_box3.copy(geometry.boundingBox).applyMatrix4(_instanceLocalMatrix);
+			this.boundingBox.union(_box3);
+		}
+	}
+	/**
+	* Computes the bounding sphere of the instanced mesh, and updates {@link InstancedMesh#boundingSphere}
+	* The engine automatically computes the bounding sphere when it is needed, e.g., for ray casting or view frustum culling.
+	* You may need to recompute the bounding sphere if an instance is transformed via {@link InstancedMesh#setMatrixAt}.
+	*/
+	computeBoundingSphere() {
+		const geometry = this.geometry;
+		const count = this.count;
+		if (this.boundingSphere === null) this.boundingSphere = new Sphere();
+		if (geometry.boundingSphere === null) geometry.computeBoundingSphere();
+		this.boundingSphere.makeEmpty();
+		for (let i = 0; i < count; i++) {
+			this.getMatrixAt(i, _instanceLocalMatrix);
+			_sphere$4.copy(geometry.boundingSphere).applyMatrix4(_instanceLocalMatrix);
+			this.boundingSphere.union(_sphere$4);
+		}
+	}
+	copy(source, recursive) {
+		super.copy(source, recursive);
+		this.instanceMatrix.copy(source.instanceMatrix);
+		this.morphTexture = source.morphTexture !== null ? source.morphTexture.clone() : null;
+		this.instanceColor = source.instanceColor !== null ? source.instanceColor.clone() : null;
+		this.count = source.count;
+		this.boundingBox = source.boundingBox !== null ? source.boundingBox.clone() : null;
+		this.boundingSphere = source.boundingSphere !== null ? source.boundingSphere.clone() : null;
+		return this;
+	}
+	/**
+	* Gets the color of the defined instance.
+	*
+	* @param {number} index - The instance index.
+	* @param {Color} color - The target object that is used to store the method's result.
+	* @return {Color} A reference to the target color.
+	*/
+	getColorAt(index, color) {
+		if (this.instanceColor === null) return color.setRGB(1, 1, 1);
+		else return color.fromArray(this.instanceColor.array, index * 3);
+	}
+	/**
+	* Gets the local transformation matrix of the defined instance.
+	*
+	* @param {number} index - The instance index.
+	* @param {Matrix4} matrix - The target object that is used to store the method's result.
+	* @return {Matrix4} A reference to the target matrix.
+	*/
+	getMatrixAt(index, matrix) {
+		return matrix.fromArray(this.instanceMatrix.array, index * 16);
+	}
+	/**
+	* Gets the morph target weights of the defined instance.
+	*
+	* @param {number} index - The instance index.
+	* @param {Mesh} object - The target object that is used to store the method's result.
+	*/
+	getMorphAt(index, object) {
+		const objectInfluences = object.morphTargetInfluences;
+		const array = this.morphTexture.source.data.data;
+		const dataIndex = index * (objectInfluences.length + 1) + 1;
+		for (let i = 0; i < objectInfluences.length; i++) objectInfluences[i] = array[dataIndex + i];
+	}
+	raycast(raycaster, intersects) {
+		const matrixWorld = this.matrixWorld;
+		const raycastTimes = this.count;
+		_mesh$1.geometry = this.geometry;
+		_mesh$1.material = this.material;
+		if (_mesh$1.material === void 0) return;
+		if (this.boundingSphere === null) this.computeBoundingSphere();
+		_sphere$4.copy(this.boundingSphere);
+		_sphere$4.applyMatrix4(matrixWorld);
+		if (raycaster.ray.intersectsSphere(_sphere$4) === false) return;
+		for (let instanceId = 0; instanceId < raycastTimes; instanceId++) {
+			this.getMatrixAt(instanceId, _instanceLocalMatrix);
+			_instanceWorldMatrix.multiplyMatrices(matrixWorld, _instanceLocalMatrix);
+			_mesh$1.matrixWorld = _instanceWorldMatrix;
+			_mesh$1.raycast(raycaster, _instanceIntersects);
+			for (let i = 0, l = _instanceIntersects.length; i < l; i++) {
+				const intersect = _instanceIntersects[i];
+				intersect.instanceId = instanceId;
+				intersect.object = this;
+				intersects.push(intersect);
+			}
+			_instanceIntersects.length = 0;
+		}
+	}
+	/**
+	* Sets the given color to the defined instance. Make sure you set the `needsUpdate` flag of
+	* {@link InstancedMesh#instanceColor} to `true` after updating all the colors.
+	*
+	* @param {number} index - The instance index.
+	* @param {Color} color - The instance color.
+	* @return {InstancedMesh} A reference to this instanced mesh.
+	*/
+	setColorAt(index, color) {
+		if (this.instanceColor === null) this.instanceColor = new InstancedBufferAttribute(new Float32Array(this.instanceMatrix.count * 3).fill(1), 3);
+		color.toArray(this.instanceColor.array, index * 3);
+		return this;
+	}
+	/**
+	* Sets the given local transformation matrix to the defined instance. Make sure you set the `needsUpdate` flag of
+	* {@link InstancedMesh#instanceMatrix} to `true` after updating all the matrices.
+	*
+	* @param {number} index - The instance index.
+	* @param {Matrix4} matrix - The local transformation.
+	* @return {InstancedMesh} A reference to this instanced mesh.
+	*/
+	setMatrixAt(index, matrix) {
+		matrix.toArray(this.instanceMatrix.array, index * 16);
+		return this;
+	}
+	/**
+	* Sets the morph target weights to the defined instance. Make sure you set the `needsUpdate` flag of
+	* {@link InstancedMesh#morphTexture} to `true` after updating all the influences.
+	*
+	* @param {number} index - The instance index.
+	* @param {Mesh} object -  A mesh which `morphTargetInfluences` property containing the morph target weights
+	* of a single instance.
+	* @return {InstancedMesh} A reference to this instanced mesh.
+	*/
+	setMorphAt(index, object) {
+		const objectInfluences = object.morphTargetInfluences;
+		const len = objectInfluences.length + 1;
+		if (this.morphTexture === null) this.morphTexture = new DataTexture(new Float32Array(len * this.count), len, this.count, RedFormat, FloatType);
+		const array = this.morphTexture.source.data.data;
+		let morphInfluencesSum = 0;
+		for (let i = 0; i < objectInfluences.length; i++) morphInfluencesSum += objectInfluences[i];
+		const morphBaseInfluence = this.geometry.morphTargetsRelative ? 1 : 1 - morphInfluencesSum;
+		const dataIndex = len * index;
+		array[dataIndex] = morphBaseInfluence;
+		array.set(objectInfluences, dataIndex + 1);
+		return this;
+	}
+	updateMorphTargets() {}
+	/**
+	* Frees the GPU-related resources allocated by this instance. Call this
+	* method whenever this instance is no longer used in your app.
+	*/
+	dispose() {
+		super.dispose();
+		this.instanceMatrix.dispose();
+		if (this.instanceColor !== null) this.instanceColor.dispose();
+		if (this.morphTexture !== null) {
+			this.morphTexture.dispose();
+			this.morphTexture = null;
+		}
+	}
+};
 var _sphere$3 = /*@__PURE__*/ new Sphere();
 var _defaultSpriteCenter = /*@__PURE__*/ new Vector2(.5, .5);
 var _vector$6 = /*@__PURE__*/ new Vector3();
@@ -18154,6 +20541,41 @@ var CubeTexture = class extends Texture {
 	}
 };
 /**
+* Creates a texture from a canvas element.
+*
+* This is almost the same as the base texture class, except that it sets {@link Texture#needsUpdate}
+* to `true` immediately since a canvas can directly be used for rendering.
+*
+* @augments Texture
+*/
+var CanvasTexture = class extends Texture {
+	/**
+	* Constructs a new texture.
+	*
+	* @param {HTMLCanvasElement} [canvas] - The HTML canvas element.
+	* @param {number} [mapping=Texture.DEFAULT_MAPPING] - The texture mapping.
+	* @param {number} [wrapS=ClampToEdgeWrapping] - The wrapS value.
+	* @param {number} [wrapT=ClampToEdgeWrapping] - The wrapT value.
+	* @param {number} [magFilter=LinearFilter] - The mag filter value.
+	* @param {number} [minFilter=LinearMipmapLinearFilter] - The min filter value.
+	* @param {number} [format=RGBAFormat] - The texture format.
+	* @param {number} [type=UnsignedByteType] - The texture type.
+	* @param {number} [anisotropy=Texture.DEFAULT_ANISOTROPY] - The anisotropy value.
+	*/
+	constructor(canvas, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy) {
+		super(canvas, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy);
+		/**
+		* This flag can be used for type testing.
+		*
+		* @type {boolean}
+		* @readonly
+		* @default true
+		*/
+		this.isCanvasTexture = true;
+		this.needsUpdate = true;
+	}
+};
+/**
 * This class can be used to automatically save the depth information of a
 * rendering into a texture.
 *
@@ -18451,6 +20873,225 @@ var BoxGeometry = class BoxGeometry extends BufferGeometry {
 	*/
 	static fromJSON(data) {
 		return new BoxGeometry(data.width, data.height, data.depth, data.widthSegments, data.heightSegments, data.depthSegments);
+	}
+};
+/**
+* A geometry class for representing a capsule.
+*
+* ```js
+* const geometry = new THREE.CapsuleGeometry( 1, 1, 4, 8, 1 );
+* const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+* const capsule = new THREE.Mesh( geometry, material );
+* scene.add( capsule );
+* ```
+*
+* @augments BufferGeometry
+* @demo scenes/geometry-browser.html#CapsuleGeometry
+*/
+var CapsuleGeometry = class CapsuleGeometry extends BufferGeometry {
+	/**
+	* Constructs a new capsule geometry.
+	*
+	* @param {number} [radius=1] - Radius of the capsule.
+	* @param {number} [height=1] - Height of the middle section.
+	* @param {number} [capSegments=4] - Number of curve segments used to build each cap.
+	* @param {number} [radialSegments=8] - Number of segmented faces around the circumference of the capsule. Must be an integer >= 3.
+	* @param {number} [heightSegments=1] - Number of rows of faces along the height of the middle section. Must be an integer >= 1.
+	*/
+	constructor(radius = 1, height = 1, capSegments = 4, radialSegments = 8, heightSegments = 1) {
+		super();
+		this.type = "CapsuleGeometry";
+		/**
+		* Holds the constructor parameters that have been
+		* used to generate the geometry. Any modification
+		* after instantiation does not change the geometry.
+		*
+		* @type {Object}
+		*/
+		this.parameters = {
+			radius,
+			height,
+			capSegments,
+			radialSegments,
+			heightSegments
+		};
+		height = Math.max(0, height);
+		capSegments = Math.max(1, Math.floor(capSegments));
+		radialSegments = Math.max(3, Math.floor(radialSegments));
+		heightSegments = Math.max(1, Math.floor(heightSegments));
+		const indices = [];
+		const vertices = [];
+		const normals = [];
+		const uvs = [];
+		const halfHeight = height / 2;
+		const capArcLength = Math.PI / 2 * radius;
+		const cylinderPartLength = height;
+		const totalArcLength = 2 * capArcLength + cylinderPartLength;
+		const numVerticalSegments = capSegments * 2 + heightSegments;
+		const verticesPerRow = radialSegments + 1;
+		const normal = new Vector3();
+		const vertex = new Vector3();
+		for (let iy = 0; iy <= numVerticalSegments; iy++) {
+			let currentArcLength = 0;
+			let profileY = 0;
+			let profileRadius = 0;
+			let normalYComponent = 0;
+			if (iy <= capSegments) {
+				const segmentProgress = iy / capSegments;
+				const angle = segmentProgress * Math.PI / 2;
+				profileY = -halfHeight - radius * Math.cos(angle);
+				profileRadius = radius * Math.sin(angle);
+				normalYComponent = -radius * Math.cos(angle);
+				currentArcLength = segmentProgress * capArcLength;
+			} else if (iy <= capSegments + heightSegments) {
+				const segmentProgress = (iy - capSegments) / heightSegments;
+				profileY = -halfHeight + segmentProgress * height;
+				profileRadius = radius;
+				normalYComponent = 0;
+				currentArcLength = capArcLength + segmentProgress * cylinderPartLength;
+			} else {
+				const segmentProgress = (iy - capSegments - heightSegments) / capSegments;
+				const angle = segmentProgress * Math.PI / 2;
+				profileY = halfHeight + radius * Math.sin(angle);
+				profileRadius = radius * Math.cos(angle);
+				normalYComponent = radius * Math.sin(angle);
+				currentArcLength = capArcLength + cylinderPartLength + segmentProgress * capArcLength;
+			}
+			const v = Math.max(0, Math.min(1, currentArcLength / totalArcLength));
+			let uOffset = 0;
+			if (iy === 0) uOffset = .5 / radialSegments;
+			else if (iy === numVerticalSegments) uOffset = -.5 / radialSegments;
+			for (let ix = 0; ix <= radialSegments; ix++) {
+				const u = ix / radialSegments;
+				const theta = u * Math.PI * 2;
+				const sinTheta = Math.sin(theta);
+				const cosTheta = Math.cos(theta);
+				vertex.x = -profileRadius * cosTheta;
+				vertex.y = profileY;
+				vertex.z = profileRadius * sinTheta;
+				vertices.push(vertex.x, vertex.y, vertex.z);
+				normal.set(-profileRadius * cosTheta, normalYComponent, profileRadius * sinTheta);
+				normal.normalize();
+				normals.push(normal.x, normal.y, normal.z);
+				uvs.push(u + uOffset, v);
+			}
+			if (iy > 0) {
+				const prevIndexRow = (iy - 1) * verticesPerRow;
+				for (let ix = 0; ix < radialSegments; ix++) {
+					const i1 = prevIndexRow + ix;
+					const i2 = prevIndexRow + ix + 1;
+					const i3 = iy * verticesPerRow + ix;
+					const i4 = iy * verticesPerRow + ix + 1;
+					indices.push(i1, i2, i3);
+					indices.push(i2, i4, i3);
+				}
+			}
+		}
+		this.setIndex(indices);
+		this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+		this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+		this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+	}
+	copy(source) {
+		super.copy(source);
+		this.parameters = Object.assign({}, source.parameters);
+		return this;
+	}
+	/**
+	* Factory method for creating an instance of this class from the given
+	* JSON object.
+	*
+	* @param {Object} data - A JSON object representing the serialized geometry.
+	* @return {CapsuleGeometry} A new instance.
+	*/
+	static fromJSON(data) {
+		return new CapsuleGeometry(data.radius, data.height, data.capSegments, data.radialSegments, data.heightSegments);
+	}
+};
+/**
+* A simple shape of Euclidean geometry. It is constructed from a
+* number of triangular segments that are oriented around a central point and
+* extend as far out as a given radius. It is built counter-clockwise from a
+* start angle and a given central angle. It can also be used to create
+* regular polygons, where the number of segments determines the number of
+* sides.
+*
+* ```js
+* const geometry = new THREE.CircleGeometry( 5, 32 );
+* const material = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
+* const circle = new THREE.Mesh( geometry, material );
+* scene.add( circle )
+* ```
+*
+* @augments BufferGeometry
+* @demo scenes/geometry-browser.html#CircleGeometry
+*/
+var CircleGeometry = class CircleGeometry extends BufferGeometry {
+	/**
+	* Constructs a new circle geometry.
+	*
+	* @param {number} [radius=1] - Radius of the circle.
+	* @param {number} [segments=32] - Number of segments (triangles), minimum = `3`.
+	* @param {number} [thetaStart=0] - Start angle for first segment in radians.
+	* @param {number} [thetaLength=Math.PI*2] - The central angle, often called theta,
+	* of the circular sector in radians. The default value results in a complete circle.
+	*/
+	constructor(radius = 1, segments = 32, thetaStart = 0, thetaLength = Math.PI * 2) {
+		super();
+		this.type = "CircleGeometry";
+		/**
+		* Holds the constructor parameters that have been
+		* used to generate the geometry. Any modification
+		* after instantiation does not change the geometry.
+		*
+		* @type {Object}
+		*/
+		this.parameters = {
+			radius,
+			segments,
+			thetaStart,
+			thetaLength
+		};
+		segments = Math.max(3, segments);
+		const indices = [];
+		const vertices = [];
+		const normals = [];
+		const uvs = [];
+		const vertex = new Vector3();
+		const uv = new Vector2();
+		vertices.push(0, 0, 0);
+		normals.push(0, 0, 1);
+		uvs.push(.5, .5);
+		for (let s = 0, i = 3; s <= segments; s++, i += 3) {
+			const segment = thetaStart + s / segments * thetaLength;
+			vertex.x = radius * Math.cos(segment);
+			vertex.y = radius * Math.sin(segment);
+			vertices.push(vertex.x, vertex.y, vertex.z);
+			normals.push(0, 0, 1);
+			uv.x = (vertices[i] / radius + 1) / 2;
+			uv.y = (vertices[i + 1] / radius + 1) / 2;
+			uvs.push(uv.x, uv.y);
+		}
+		for (let i = 1; i <= segments; i++) indices.push(i, i + 1, 0);
+		this.setIndex(indices);
+		this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+		this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+		this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+	}
+	copy(source) {
+		super.copy(source);
+		this.parameters = Object.assign({}, source.parameters);
+		return this;
+	}
+	/**
+	* Factory method for creating an instance of this class from the given
+	* JSON object.
+	*
+	* @param {Object} data - A JSON object representing the serialized geometry.
+	* @return {CircleGeometry} A new instance.
+	*/
+	static fromJSON(data) {
+		return new CircleGeometry(data.radius, data.segments, data.thetaStart, data.thetaLength);
 	}
 };
 /**
@@ -22129,6 +24770,211 @@ var PlaneGeometry = class PlaneGeometry extends BufferGeometry {
 	}
 };
 /**
+* A class for generating a sphere geometry.
+*
+* ```js
+* const geometry = new THREE.SphereGeometry( 15, 32, 16 );
+* const material = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
+* const sphere = new THREE.Mesh( geometry, material );
+* scene.add( sphere );
+* ```
+*
+* @augments BufferGeometry
+* @demo scenes/geometry-browser.html#SphereGeometry
+*/
+var SphereGeometry = class SphereGeometry extends BufferGeometry {
+	/**
+	* Constructs a new sphere geometry.
+	*
+	* @param {number} [radius=1] - The sphere radius.
+	* @param {number} [widthSegments=32] - The number of horizontal segments. Minimum value is `3`.
+	* @param {number} [heightSegments=16] - The number of vertical segments. Minimum value is `2`.
+	* @param {number} [phiStart=0] - The horizontal starting angle in radians.
+	* @param {number} [phiLength=Math.PI*2] - The horizontal sweep angle size.
+	* @param {number} [thetaStart=0] - The vertical starting angle in radians.
+	* @param {number} [thetaLength=Math.PI] - The vertical sweep angle size.
+	*/
+	constructor(radius = 1, widthSegments = 32, heightSegments = 16, phiStart = 0, phiLength = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI) {
+		super();
+		this.type = "SphereGeometry";
+		/**
+		* Holds the constructor parameters that have been
+		* used to generate the geometry. Any modification
+		* after instantiation does not change the geometry.
+		*
+		* @type {Object}
+		*/
+		this.parameters = {
+			radius,
+			widthSegments,
+			heightSegments,
+			phiStart,
+			phiLength,
+			thetaStart,
+			thetaLength
+		};
+		widthSegments = Math.max(3, Math.floor(widthSegments));
+		heightSegments = Math.max(2, Math.floor(heightSegments));
+		const thetaEnd = Math.min(thetaStart + thetaLength, Math.PI);
+		let index = 0;
+		const grid = [];
+		const vertex = new Vector3();
+		const normal = new Vector3();
+		const indices = [];
+		const vertices = [];
+		const normals = [];
+		const uvs = [];
+		for (let iy = 0; iy <= heightSegments; iy++) {
+			const verticesRow = [];
+			const v = iy / heightSegments;
+			const theta = thetaStart + v * thetaLength;
+			const y = radius * Math.cos(theta);
+			const ringRadius = Math.sqrt(radius * radius - y * y);
+			let uOffset = 0;
+			if (iy === 0 && thetaStart === 0) uOffset = .5 / widthSegments;
+			else if (iy === heightSegments && thetaEnd === Math.PI) uOffset = -.5 / widthSegments;
+			for (let ix = 0; ix <= widthSegments; ix++) {
+				const u = ix / widthSegments;
+				const phi = phiStart + u * phiLength;
+				vertex.x = -ringRadius * Math.cos(phi);
+				vertex.y = y;
+				vertex.z = ringRadius * Math.sin(phi);
+				vertices.push(vertex.x, vertex.y, vertex.z);
+				normal.copy(vertex).normalize();
+				normals.push(normal.x, normal.y, normal.z);
+				uvs.push(u + uOffset, 1 - v);
+				verticesRow.push(index++);
+			}
+			grid.push(verticesRow);
+		}
+		for (let iy = 0; iy < heightSegments; iy++) for (let ix = 0; ix < widthSegments; ix++) {
+			const a = grid[iy][ix + 1];
+			const b = grid[iy][ix];
+			const c = grid[iy + 1][ix];
+			const d = grid[iy + 1][ix + 1];
+			if (iy !== 0 || thetaStart > 0) indices.push(a, b, d);
+			if (iy !== heightSegments - 1 || thetaEnd < Math.PI) indices.push(b, c, d);
+		}
+		this.setIndex(indices);
+		this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+		this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+		this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+	}
+	copy(source) {
+		super.copy(source);
+		this.parameters = Object.assign({}, source.parameters);
+		return this;
+	}
+	/**
+	* Factory method for creating an instance of this class from the given
+	* JSON object.
+	*
+	* @param {Object} data - A JSON object representing the serialized geometry.
+	* @return {SphereGeometry} A new instance.
+	*/
+	static fromJSON(data) {
+		return new SphereGeometry(data.radius, data.widthSegments, data.heightSegments, data.phiStart, data.phiLength, data.thetaStart, data.thetaLength);
+	}
+};
+/**
+* A geometry class for representing an torus.
+*
+* ```js
+* const geometry = new THREE.TorusGeometry( 10, 3, 16, 100 );
+* const material = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
+* const torus = new THREE.Mesh( geometry, material );
+* scene.add( torus );
+* ```
+*
+* @augments BufferGeometry
+* @demo scenes/geometry-browser.html#TorusGeometry
+*/
+var TorusGeometry = class TorusGeometry extends BufferGeometry {
+	/**
+	* Constructs a new torus geometry.
+	*
+	* @param {number} [radius=1] - Radius of the torus, from the center of the torus to the center of the tube.
+	* @param {number} [tube=0.4] - Radius of the tube. Must be smaller than `radius`.
+	* @param {number} [radialSegments=12] - The number of radial segments.
+	* @param {number} [tubularSegments=48] - The number of tubular segments.
+	* @param {number} [arc=Math.PI*2] - Central angle in radians.
+	* @param {number} [thetaStart=0] - Start of the tubular sweep in radians.
+	* @param {number} [thetaLength=Math.PI*2] - Length of the tubular sweep in radians.
+	*/
+	constructor(radius = 1, tube = .4, radialSegments = 12, tubularSegments = 48, arc = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI * 2) {
+		super();
+		this.type = "TorusGeometry";
+		/**
+		* Holds the constructor parameters that have been
+		* used to generate the geometry. Any modification
+		* after instantiation does not change the geometry.
+		*
+		* @type {Object}
+		*/
+		this.parameters = {
+			radius,
+			tube,
+			radialSegments,
+			tubularSegments,
+			arc,
+			thetaStart,
+			thetaLength
+		};
+		radialSegments = Math.floor(radialSegments);
+		tubularSegments = Math.floor(tubularSegments);
+		const indices = [];
+		const vertices = [];
+		const normals = [];
+		const uvs = [];
+		const center = new Vector3();
+		const vertex = new Vector3();
+		const normal = new Vector3();
+		for (let j = 0; j <= radialSegments; j++) {
+			const v = thetaStart + j / radialSegments * thetaLength;
+			for (let i = 0; i <= tubularSegments; i++) {
+				const u = i / tubularSegments * arc;
+				vertex.x = (radius + tube * Math.cos(v)) * Math.cos(u);
+				vertex.y = (radius + tube * Math.cos(v)) * Math.sin(u);
+				vertex.z = tube * Math.sin(v);
+				vertices.push(vertex.x, vertex.y, vertex.z);
+				center.x = radius * Math.cos(u);
+				center.y = radius * Math.sin(u);
+				normal.subVectors(vertex, center).normalize();
+				normals.push(normal.x, normal.y, normal.z);
+				uvs.push(i / tubularSegments);
+				uvs.push(j / radialSegments);
+			}
+		}
+		for (let j = 1; j <= radialSegments; j++) for (let i = 1; i <= tubularSegments; i++) {
+			const a = (tubularSegments + 1) * j + i - 1;
+			const b = (tubularSegments + 1) * (j - 1) + i - 1;
+			const c = (tubularSegments + 1) * (j - 1) + i;
+			const d = (tubularSegments + 1) * j + i;
+			indices.push(a, b, d);
+			indices.push(b, c, d);
+		}
+		this.setIndex(indices);
+		this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+		this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+		this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+	}
+	copy(source) {
+		super.copy(source);
+		this.parameters = Object.assign({}, source.parameters);
+		return this;
+	}
+	/**
+	* Factory method for creating an instance of this class from the given
+	* JSON object.
+	*
+	* @param {Object} data - A JSON object representing the serialized geometry.
+	* @return {TorusGeometry} A new instance.
+	*/
+	static fromJSON(data) {
+		return new TorusGeometry(data.radius, data.tube, data.radialSegments, data.tubularSegments, data.arc, data.thetaStart, data.thetaLength);
+	}
+};
+/**
 * Provides utility functions for managing uniforms.
 *
 * @module UniformsUtils
@@ -22979,6 +25825,306 @@ var MeshStandardMaterial = class extends Material {
 		this.wireframeLinecap = source.wireframeLinecap;
 		this.wireframeLinejoin = source.wireframeLinejoin;
 		this.flatShading = source.flatShading;
+		this.fog = source.fog;
+		return this;
+	}
+};
+/**
+* A material implementing toon shading.
+*
+* @augments Material
+* @demo scenes/material-browser.html#MeshToonMaterial
+*/
+var MeshToonMaterial = class extends Material {
+	/**
+	* Constructs a new mesh toon material.
+	*
+	* @param {Object} [parameters] - An object with one or more properties
+	* defining the material's appearance. Any property of the material
+	* (including any property from inherited materials) can be passed
+	* in here. Color values can be passed any type of value accepted
+	* by {@link Color#set}.
+	*/
+	constructor(parameters) {
+		super();
+		/**
+		* This flag can be used for type testing.
+		*
+		* @type {boolean}
+		* @readonly
+		* @default true
+		*/
+		this.isMeshToonMaterial = true;
+		this.defines = { "TOON": "" };
+		this.type = "MeshToonMaterial";
+		/**
+		* Color of the material.
+		*
+		* @type {Color}
+		* @default (1,1,1)
+		*/
+		this.color = new Color(16777215);
+		/**
+		* The color map. May optionally include an alpha channel, typically combined
+		* with {@link Material#transparent} or {@link Material#alphaTest}. The texture map
+		* color is modulated by the diffuse `color`.
+		*
+		* `map` represents color data, and the texture must be assigned a
+		* {@link Texture#colorSpace}. Most `map` textures set
+		* `texture.colorSpace = SRGBColorSpace`.
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.map = null;
+		/**
+		* Gradient map for toon shading. It's required to set
+		* {@link Texture#minFilter} and {@link Texture#magFilter} to {@link NearestFilter}
+		* when using this type of texture.
+		*
+		* `gradientMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.gradientMap = null;
+		/**
+		* The light map. Requires a second set of UVs.
+		*
+		* `lightMap` represents pre-baked illuminance data, and the texture must be assigned
+		* a {@link Texture#colorSpace}. Most `lightMap` textures set
+		* `texture.colorSpace = LinearSRGBColorSpace` and use float-type formats
+		* such as `.exr` or `.hdr`.
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.lightMap = null;
+		/**
+		* Intensity of the baked light.
+		*
+		* @type {number}
+		* @default 1
+		*/
+		this.lightMapIntensity = 1;
+		/**
+		* The red channel of this texture is used as the ambient occlusion map.
+		* Requires a second set of UVs.
+		*
+		* `aoMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.aoMap = null;
+		/**
+		* Intensity of the ambient occlusion effect. Range is `[0,1]`, where `0`
+		* disables ambient occlusion. Where intensity is `1` and the AO map's
+		* red channel is also `1`, ambient light is fully occluded on a surface.
+		*
+		* @type {number}
+		* @default 1
+		*/
+		this.aoMapIntensity = 1;
+		/**
+		* Emissive (light) color of the material, essentially a solid color
+		* unaffected by other lighting.
+		*
+		* @type {Color}
+		* @default (0,0,0)
+		*/
+		this.emissive = new Color(0);
+		/**
+		* Intensity of the emissive light. Modulates the emissive color.
+		*
+		* @type {number}
+		* @default 1
+		*/
+		this.emissiveIntensity = 1;
+		/**
+		* Set emissive (glow) map. The emissive map color is modulated by the
+		* emissive color and the emissive intensity. If you have an emissive map,
+		* be sure to set the emissive color to something other than black.
+		*
+		* `emissiveMap` represents color data, and the texture must be assigned a
+		* {@link Texture#colorSpace}. Most `emissiveMap` textures set
+		* `texture.colorSpace = SRGBColorSpace`.
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.emissiveMap = null;
+		/**
+		* The texture to create a bump map. The black and white values map to the
+		* perceived depth in relation to the lights. Bump doesn't actually affect
+		* the geometry of the object, only the lighting. If a normal map is defined
+		* this will be ignored.
+		*
+		* `bumpMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.bumpMap = null;
+		/**
+		* How much the bump map affects the material. Typical range is `[0,1]`.
+		*
+		* @type {number}
+		* @default 1
+		*/
+		this.bumpScale = 1;
+		/**
+		* The texture to create a normal map. The RGB values affect the surface
+		* normal for each pixel fragment and change the way the color is lit. Normal
+		* maps do not change the actual shape of the surface, only the lighting. In
+		* case the material has a normal map authored using the left handed
+		* convention, the `y` component of `normalScale` should be negated to compensate
+		* for the different handedness.
+		*
+		* `normalMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.normalMap = null;
+		/**
+		* The type of normal map.
+		*
+		* @type {(TangentSpaceNormalMap|ObjectSpaceNormalMap)}
+		* @default TangentSpaceNormalMap
+		*/
+		this.normalMapType = 0;
+		/**
+		* How much the normal map affects the material. Typical value range is `[0,1]`.
+		*
+		* @type {Vector2}
+		* @default (1,1)
+		*/
+		this.normalScale = new Vector2(1, 1);
+		/**
+		* The displacement map affects the position of the mesh's vertices. Unlike
+		* other maps which only affect the light and shade of the material the
+		* displaced vertices can cast shadows, block other objects, and otherwise
+		* act as real geometry. The displacement texture is an image where the value
+		* of each pixel (white being the highest) is mapped against, and
+		* repositions, the vertices of the mesh. For best results, pair a
+		* displacement map with a matching normal map, since the renderer can
+		* not recompute surface normals from the displaced vertices.
+		*
+		* `displacementMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.displacementMap = null;
+		/**
+		* How much the displacement map affects the mesh (where black is no
+		* displacement, and white is maximum displacement). Without a displacement
+		* map set, this value is not applied.
+		*
+		* @type {number}
+		* @default 1
+		*/
+		this.displacementScale = 1;
+		/**
+		* The offset of the displacement map's values on the mesh's vertices.
+		* The bias is added to the scaled sample of the displacement map.
+		* Without a displacement map set, this value is not applied.
+		*
+		* @type {number}
+		* @default 0
+		*/
+		this.displacementBias = 0;
+		/**
+		* The alpha map is a grayscale texture that controls the opacity across the
+		* surface (black: fully transparent; white: fully opaque).
+		*
+		* Only the color of the texture is used, ignoring the alpha channel if one
+		* exists. For RGB and RGBA textures, the renderer will use the green channel
+		* when sampling this texture due to the extra bit of precision provided for
+		* green in DXT-compressed and uncompressed RGB 565 formats. Luminance-only and
+		* luminance/alpha textures will also still work as expected.
+		*
+		* `alphaMap` represents non-color data. Any texture assigned must have
+		* `texture.colorSpace = NoColorSpace` (default).
+		*
+		* @type {?Texture}
+		* @default null
+		*/
+		this.alphaMap = null;
+		/**
+		* Renders the geometry as a wireframe.
+		*
+		* @type {boolean}
+		* @default false
+		*/
+		this.wireframe = false;
+		/**
+		* Controls the thickness of the wireframe.
+		*
+		* Can only be used with {@link SVGRenderer}.
+		*
+		* @type {number}
+		* @default 1
+		*/
+		this.wireframeLinewidth = 1;
+		/**
+		* Defines appearance of wireframe ends.
+		*
+		* Can only be used with {@link SVGRenderer}.
+		*
+		* @type {('round'|'bevel'|'miter')}
+		* @default 'round'
+		*/
+		this.wireframeLinecap = "round";
+		/**
+		* Defines appearance of wireframe joints.
+		*
+		* Can only be used with {@link SVGRenderer}.
+		*
+		* @type {('round'|'bevel'|'miter')}
+		* @default 'round'
+		*/
+		this.wireframeLinejoin = "round";
+		/**
+		* Whether the material is affected by fog or not.
+		*
+		* @type {boolean}
+		* @default true
+		*/
+		this.fog = true;
+		this.setValues(parameters);
+	}
+	copy(source) {
+		super.copy(source);
+		this.color.copy(source.color);
+		this.map = source.map;
+		this.gradientMap = source.gradientMap;
+		this.lightMap = source.lightMap;
+		this.lightMapIntensity = source.lightMapIntensity;
+		this.aoMap = source.aoMap;
+		this.aoMapIntensity = source.aoMapIntensity;
+		this.emissive.copy(source.emissive);
+		this.emissiveMap = source.emissiveMap;
+		this.emissiveIntensity = source.emissiveIntensity;
+		this.bumpMap = source.bumpMap;
+		this.bumpScale = source.bumpScale;
+		this.normalMap = source.normalMap;
+		this.normalMapType = source.normalMapType;
+		this.normalScale.copy(source.normalScale);
+		this.displacementMap = source.displacementMap;
+		this.displacementScale = source.displacementScale;
+		this.displacementBias = source.displacementBias;
+		this.alphaMap = source.alphaMap;
+		this.wireframe = source.wireframe;
+		this.wireframeLinewidth = source.wireframeLinewidth;
+		this.wireframeLinecap = source.wireframeLinecap;
+		this.wireframeLinejoin = source.wireframeLinejoin;
 		this.fog = source.fog;
 		return this;
 	}
@@ -37337,10 +40483,13 @@ var WebGLRenderer = class {
 };
 // src/games/bridge-master/scene/camera.js
 var worldPoint = (node, z = 1.22) => new Vector3((node.x - 400) / 35, (300 - node.y) / 35, z);
-function createCamera(width, height, view = "depth", yaw = 0) {
-	const aspect = Math.max(1, width) / Math.max(1, height);
-	const halfHeight = Math.max(height < 260 ? 7.2 : 5.4, 10.8 / aspect);
-	const camera = new OrthographicCamera(-halfHeight * aspect, halfHeight * aspect, halfHeight, -halfHeight, .1, 160);
+function createCamera(width, height, view = "depth", yaw = 0, insets = {}) {
+	const top = Math.max(0, insets.top ?? 0), bottom = Math.max(0, insets.bottom ?? 0);
+	const safeHeight = Math.max(120, height - top - bottom);
+	const aspect = Math.max(1, width) / safeHeight;
+	const unit = 2 * Math.max(safeHeight < 260 ? 7.2 : 5.4, 10.8 / aspect) / safeHeight;
+	const shift = unit * (top - bottom) / 2;
+	const camera = new OrthographicCamera(-unit * width / 2, unit * width / 2, unit * height / 2 + shift, -unit * height / 2 + shift, .1, 160);
 	const target = new Vector3(0, 1.4, 0);
 	camera.position.set(Math.sin(yaw) * 25, view === "front" ? 3.4 : 12.4, Math.cos(yaw) * 25);
 	camera.lookAt(target);
@@ -37356,6 +40505,97 @@ function projectNode(node, camera, width, height) {
 	};
 }
 // src/games/bridge-master/scene/world.js
+var WATER_Y = -5.1;
+var INK = 2824720;
+var hash = (text) => {
+	let h = 2166136261;
+	for (const ch of text) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+	return (h >>> 0) % 1e3 / 1e3;
+};
+var easeOutBack = (t) => {
+	return 1 + 2.9 * Math.pow(t - 1, 3) + 1.9 * Math.pow(t - 1, 2);
+};
+function skyTexture() {
+	const canvas = document.createElement("canvas");
+	canvas.width = 2;
+	canvas.height = 256;
+	const g = canvas.getContext("2d");
+	const gradient = g.createLinearGradient(0, 0, 0, 256);
+	gradient.addColorStop(0, "#3f9df2");
+	gradient.addColorStop(.5, "#8fd6ff");
+	gradient.addColorStop(1, "#fff1c8");
+	g.fillStyle = gradient;
+	g.fillRect(0, 0, 2, 256);
+	const texture = new CanvasTexture(canvas);
+	texture.colorSpace = SRGBColorSpace;
+	return texture;
+}
+function createParticles(parent, max = 260) {
+	const geometry = new IcosahedronGeometry(1, 0);
+	const material = new MeshBasicMaterial({ color: 16777215 });
+	const mesh = new InstancedMesh(geometry, material, max);
+	mesh.frustumCulled = false;
+	mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+	const dummy = new Object3D(), color = new Color();
+	const items = Array.from({ length: max }, () => ({
+		life: 0,
+		max: 1,
+		size: 0,
+		shrink: true,
+		gravity: 0,
+		p: new Vector3(),
+		v: new Vector3()
+	}));
+	for (let i = 0; i < max; i++) {
+		dummy.scale.setScalar(0);
+		dummy.updateMatrix();
+		mesh.setMatrixAt(i, dummy.matrix);
+		mesh.setColorAt(i, color.set(16777215));
+	}
+	parent.add(mesh);
+	let cursor = 0;
+	return {
+		emit(at, { count = 8, color: tint = "#ffffff", speed = 1.4, up = 1, spread = 1, gravity = 5, life = .7, size = .12, grow = false } = {}) {
+			for (let n = 0; n < count; n++) {
+				const index = cursor, item = items[index];
+				cursor = (cursor + 1) % max;
+				item.p.copy(at);
+				item.v.set((Math.random() - .5) * 2 * spread, up * (.4 + Math.random()), (Math.random() - .5) * 2 * spread).multiplyScalar(speed);
+				item.life = item.max = life * (.6 + Math.random() * .6);
+				item.size = size * (.6 + Math.random() * .8);
+				item.shrink = !grow;
+				item.gravity = gravity;
+				mesh.setColorAt(index, color.set(tint));
+			}
+			if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+		},
+		update(dt) {
+			for (let i = 0; i < max; i++) {
+				const item = items[i];
+				if (item.life <= 0) continue;
+				item.life -= dt;
+				item.v.y -= item.gravity * dt;
+				item.p.addScaledVector(item.v, dt);
+				const k = Math.max(0, item.life / item.max);
+				dummy.position.copy(item.p);
+				dummy.scale.setScalar(item.size * (item.shrink ? k : 1 + (1 - k) * 2));
+				dummy.updateMatrix();
+				mesh.setMatrixAt(i, dummy.matrix);
+				if (item.life <= 0) {
+					dummy.scale.setScalar(0);
+					dummy.updateMatrix();
+					mesh.setMatrixAt(i, dummy.matrix);
+				}
+			}
+			mesh.instanceMatrix.needsUpdate = true;
+		},
+		dispose() {
+			geometry.dispose();
+			material.dispose();
+			mesh.dispose();
+		}
+	};
+}
 function createWorld(canvas, level) {
 	const renderer = new WebGLRenderer({
 		canvas,
@@ -37366,22 +40606,57 @@ function createWorld(canvas, level) {
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
 	renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = 1;
-	renderer.toneMapping = 4;
-	renderer.toneMappingExposure = 1.2;
+	renderer.toneMapping = 0;
 	const scene = new Scene();
-	scene.background = new Color("#d5e6df");
-	scene.fog = new Fog("#d5e6df", 42, 95);
-	const environment = new Group(), bridge = new Group();
-	scene.add(environment, bridge);
+	const sky = skyTexture();
+	scene.background = sky;
+	scene.fog = new Fog("#cdeeff", 62, 150);
+	const root = new Group(), environment = new Group(), bridge = new Group();
+	root.add(environment, bridge);
+	scene.add(root);
+	const steps = new DataTexture(new Uint8Array([
+		120,
+		120,
+		120,
+		255,
+		190,
+		190,
+		190,
+		255,
+		255,
+		255,
+		255,
+		255
+	]), 3, 1, RGBAFormat);
+	steps.minFilter = steps.magFilter = NearestFilter;
+	steps.needsUpdate = true;
 	const materials = /* @__PURE__ */ new Map();
+	const outlineMaterial = new MeshBasicMaterial({
+		color: INK,
+		side: 1
+	});
 	function material(color, extra = {}) {
 		const key = color + JSON.stringify(extra);
-		if (!materials.has(key)) materials.set(key, new MeshStandardMaterial({
+		if (!materials.has(key)) materials.set(key, new MeshToonMaterial({
 			color,
-			roughness: .82,
+			gradientMap: steps,
 			...extra
 		}));
 		return materials.get(key);
+	}
+	function outline(object, thickness = .05) {
+		const g = object.geometry;
+		let sx = 1.07, sy = 1.07, sz = 1.07;
+		if (g.type === "BoxGeometry") {
+			const { width, height, depth } = g.parameters;
+			sx = (width + thickness * 2) / width;
+			sy = (height + thickness * 2) / height;
+			sz = (depth + thickness * 2) / depth;
+		}
+		const shell = new Mesh(g, outlineMaterial);
+		shell.scale.set(sx, sy, sz);
+		object.add(shell);
+		return object;
 	}
 	function mesh(parent, geometry, color, x = 0, y = 0, z = 0, extra) {
 		const object = new Mesh(geometry, material(color, extra));
@@ -37391,23 +40666,26 @@ function createWorld(canvas, level) {
 		parent.add(object);
 		return object;
 	}
-	const box = (parent, w, h, d, color, x, y, z) => mesh(parent, new BoxGeometry(w, h, d), color, x, y, z);
-	function beam(parent, a, b, width, depth, color) {
+	const box = (parent, w, h, d, color, x, y, z, outlined = false) => {
+		const object = mesh(parent, new BoxGeometry(w, h, d), color, x, y, z);
+		return outlined ? outline(object) : object;
+	};
+	function beam(parent, a, b, width, depth, color, outlined = false) {
 		const delta = b.clone().sub(a);
-		const object = box(parent, delta.length(), width, depth, color, ...a.clone().add(b).multiplyScalar(.5).toArray());
+		const object = box(parent, delta.length(), width, depth, color, ...a.clone().add(b).multiplyScalar(.5).toArray(), outlined);
 		object.quaternion.setFromUnitVectors(new Vector3(1, 0, 0), delta.normalize());
 		return object;
 	}
-	scene.add(new HemisphereLight("#f5fff4", "#486b70", 2.4));
-	const sun = new DirectionalLight("#fff1cb", 3.1);
+	scene.add(new HemisphereLight("#ffffff", "#9fc7ff", 2.1));
+	const sun = new DirectionalLight("#fff4d6", 2.5);
 	sun.position.set(-12, 24, 12);
 	sun.castShadow = true;
 	sun.shadow.mapSize.set(1024, 1024);
 	Object.assign(sun.shadow.camera, {
-		left: -24,
-		right: 24,
-		top: 18,
-		bottom: -18,
+		left: -26,
+		right: 26,
+		top: 20,
+		bottom: -20,
 		near: 1,
 		far: 65
 	});
@@ -37416,16 +40694,40 @@ function createWorld(canvas, level) {
 	scene.add(sun);
 	const start = level.nodes.find((n) => n.id === level.startNodeId);
 	const finish = level.nodes.find((n) => n.id === level.finishNodeId);
-	function tree(x, y, z, scale = 1, tint = "#527f65") {
+	const greens = [
+		"#4fc15b",
+		"#3aae56",
+		"#74d35f"
+	];
+	function tree(x, y, z, scale = 1, tone = 0) {
 		const group = new Group();
 		group.position.set(x, y, z);
 		group.scale.setScalar(scale);
-		box(group, .19, 1.4, .19, "#806e4d", 0, .7, 0);
-		mesh(group, new ConeGeometry(.95, 1.65, 7), tint, 0, 1.65, 0);
-		mesh(group, new ConeGeometry(.72, 1.5, 7), tint, 0, 2.35, 0);
-		mesh(group, new ConeGeometry(.48, 1.2, 7), "#7a9b70", 0, 2.95, 0);
+		box(group, .22, 1.2, .22, "#8a5a2b", 0, .6, 0);
+		if (tone % 2) mesh(group, new IcosahedronGeometry(1.05, 1), greens[tone % 3], 0, 1.9, 0);
+		else {
+			mesh(group, new ConeGeometry(.95, 1.5, 7), greens[tone % 3], 0, 1.7, 0);
+			mesh(group, new ConeGeometry(.7, 1.3, 7), greens[(tone + 1) % 3], 0, 2.45, 0);
+			mesh(group, new ConeGeometry(.46, 1.1, 7), "#8ae26a", 0, 3.05, 0);
+		}
 		environment.add(group);
 	}
+	function bush(x, y, z, scale = 1) {
+		const group = new Group();
+		group.position.set(x, y, z);
+		group.scale.setScalar(scale);
+		for (const [dx, r] of [
+			[-.45, .45],
+			[0, .6],
+			[.5, .42]
+		]) mesh(group, new IcosahedronGeometry(r, 1), "#46b75a", dx, r * .7, 0);
+		environment.add(group);
+	}
+	function flower(x, y, z, color) {
+		box(environment, .05, .3, .05, "#3d9a4a", x, y + .15, z).castShadow = false;
+		mesh(environment, new SphereGeometry(.11, 8, 6), color, x, y + .34, z).castShadow = false;
+	}
+	const foam = [];
 	for (const [side, node] of [[-1, start], [1, finish]]) {
 		const p = worldPoint(node, 0), center = p.x + side * 7;
 		const shape = new Shape();
@@ -37446,119 +40748,350 @@ function createWorld(canvas, level) {
 			bevelThickness: .25,
 			bevelSegments: 1,
 			steps: 1
-		}), "#b6ad8f", center, p.y - .35, 0);
+		}), "#c98d5a", center, p.y - .35, 0);
 		cliff.rotation.x = Math.PI / 2;
-		const grass = mesh(environment, new ExtrudeGeometry(shape, {
-			depth: .26,
+		const strata = mesh(environment, new ExtrudeGeometry(shape, {
+			depth: 1.2,
 			bevelEnabled: false,
 			steps: 1
-		}), "#93ac77", center, p.y - .09, 0);
+		}), "#b27648", center, p.y - 3.2, 0);
+		strata.rotation.x = Math.PI / 2;
+		strata.scale.set(1.012, 1.012, 1);
+		const grass = mesh(environment, new ExtrudeGeometry(shape, {
+			depth: .34,
+			bevelEnabled: false,
+			steps: 1
+		}), "#79d957", center, p.y - .06, 0);
 		grass.rotation.x = Math.PI / 2;
-		box(environment, 14, .16, 2.25, "#556b65", center, p.y - .02, 0);
-		for (let j = 0; j < 10; j++) box(environment, .65, .025, .08, "#e5dcb2", center - 6.5 + j * 1.4, p.y + .08, 0);
+		box(environment, 14, .16, 2.25, "#4b4f66", center, p.y - .02, 0);
+		for (let j = 0; j < 10; j++) box(environment, .65, .025, .1, "#ffd54a", center - 6.5 + j * 1.4, p.y + .08, 0).castShadow = false;
 		for (let j = 0; j < 10; j++) {
-			const x = center - 5 + j % 4 * 3.1;
-			const z = -3 - Math.floor(j / 4) * 3.3;
-			tree(x, p.y, z, .75 + j % 3 * .17, j % 2 ? "#507e62" : "#658b66");
+			const x = center - 5 + j % 4 * 3.1, z = -3 - Math.floor(j / 4) * 3.3;
+			tree(x, p.y, z, .75 + j % 3 * .17, j);
 		}
-		tree(center + side * 2.5, p.y, 4, 1.25);
+		tree(center + side * 2.5, p.y, 4, 1.2, side > 0 ? 1 : 0);
+		for (let j = 0; j < 6; j++) bush(center - 6 + j * 2.3, p.y, -2.2 - j % 2 * 5.5, .8 + j % 3 * .2);
+		for (let j = 0; j < 14; j++) flower(center - 6.4 + j * .95, p.y, 2.6 + j * 7 % 3 * .55, [
+			"#ff6b81",
+			"#ffd54a",
+			"#ffffff",
+			"#c58bff"
+		][j % 4]);
 		for (let j = 0; j < 7; j++) {
-			const rock = mesh(environment, new DodecahedronGeometry(1, 0), j % 2 ? "#a09e83" : "#c6bb9a", p.x + side * (.3 + j % 2), p.y - 1.8 - j % 3 * 1.4, -9 + j * 2.5);
+			const rock = mesh(environment, new DodecahedronGeometry(1, 0), j % 2 ? "#b9a58d" : "#d1bfa1", p.x + side * (.3 + j % 2), p.y - 1.8 - j % 3 * 1.4, -9 + j * 2.5);
 			rock.scale.set(1.15, 1.5, 1.8);
 			rock.rotation.set(j * .4, j * .7, .3);
 		}
-		box(environment, .4, 1.1, 2.8, "#eee6cf", p.x + side * .1, p.y - .52, 0);
+		box(environment, .46, 1.2, 2.9, "#e8c388", p.x + side * .1, p.y - .5, 0, true);
+		for (const dz of [-1, 1]) {
+			const ring = mesh(environment, new TorusGeometry(1.1 + dz * 0, .07, 6, 28), "#ffffff", p.x + side * .4, -5.05, dz * .3, {
+				transparent: true,
+				opacity: .55
+			});
+			ring.rotation.x = Math.PI / 2;
+			ring.scale.set(1.5, 3.2, 1);
+			ring.castShadow = false;
+			foam.push({
+				ring,
+				phase: side + dz
+			});
+		}
 	}
-	for (let j = 0; j < 11; j++) {
-		const x = -42 + j * 8, radius = 5 + j % 3, h = 7 + j % 4;
-		const mountain = mesh(environment, new ConeGeometry(radius, h, 6), j % 2 ? "#91ac97" : "#a3bca7", x, h / 2 - 7, -22 - j % 3 * 3);
-		mountain.rotation.y = j * .73;
-		const cap = mesh(environment, new ConeGeometry(radius * .24, h * .24, 6), "#e8eee1", x, h * .88 - 7, mountain.position.z);
-		cap.rotation.y = mountain.rotation.y;
+	{
+		const p = worldPoint(start, 0);
+		box(environment, .16, 1.7, .16, "#8a5a2b", p.x - 6.4, p.y + .8, 2.3, true);
+		const board = box(environment, 1.5, .62, .14, "#e8b265", p.x - 5.8, p.y + 1.45, 2.3, true);
+		mesh(board, new ConeGeometry(.2, .42, 3), "#ff5a3c", .55, 0, .1).rotation.z = -Math.PI / 2;
 	}
-	const waterGeometry = new PlaneGeometry(100, 110, 48, 48);
+	for (let j = 0; j < 12; j++) {
+		const x = -52 + j * 9.5 + j % 3 * 1.5, r = 6 + j % 4 * 1.3;
+		const hill = mesh(environment, new SphereGeometry(r, 14, 10), j % 2 ? "#8fd96b" : "#6fc765", x, -3.5, -26 - j % 3 * 4);
+		hill.scale.y = .62;
+		hill.castShadow = false;
+		if (j % 3 === 0) {
+			const far = mesh(environment, new SphereGeometry(r * 1.5, 12, 8), "#a9dff0", x + 5, -4, -48);
+			far.scale.y = .55;
+			far.castShadow = false;
+		}
+	}
+	const waterGeometry = new PlaneGeometry(110, 120, 44, 44);
 	waterGeometry.rotateX(-Math.PI / 2);
-	const water = mesh(environment, waterGeometry, "#458f94", 0, -5.1, 0, {
-		roughness: .25,
-		metalness: .22
-	});
-	water.castShadow = false;
+	const water = new Mesh(waterGeometry, new MeshStandardMaterial({
+		color: "#2bc0e0",
+		roughness: .28,
+		metalness: .08,
+		flatShading: true
+	}));
+	water.position.y = WATER_Y;
+	water.receiveShadow = true;
+	environment.add(water);
 	const glints = [];
-	for (let j = 0; j < 34; j++) {
-		const glint = box(environment, .35 + j % 4 * .33, .012, .045, "#a9d8cb", Math.sin(j * 8.3) * 7, -4.98, -16 + j * 1.25);
+	for (let j = 0; j < 38; j++) {
+		const glint = box(environment, .35 + j % 4 * .35, .012, .05, "#e9fbff", Math.sin(j * 8.3) * 8, -5, -16 + j * 1.2);
 		glint.castShadow = false;
 		glint.userData.origin = glint.position.x;
 		glints.push(glint);
 	}
 	const clouds = [];
-	for (let j = 0; j < 5; j++) {
+	for (let j = 0; j < 7; j++) {
 		const cloud = new Group();
-		cloud.position.set(-28 + j * 14, 14 + j % 2 * 3, -25 - j % 3 * 4);
-		for (let k = 0; k < 4; k++) {
-			const puff = mesh(cloud, new IcosahedronGeometry(1.6, 1), "#f3f3e7", k * 1.6, Math.sin(k) * .6, 0);
-			puff.scale.set(1.5, .7, 1);
+		cloud.position.set(-34 + j * 11, 13 + j % 3 * 2.4, -24 - j % 3 * 4);
+		for (let k = 0; k < 5; k++) {
+			const puff = mesh(cloud, new IcosahedronGeometry(1.5 - Math.abs(k - 2) * .22, 1), "#ffffff", k * 1.5, Math.sin(k * 1.2) * .5, 0);
+			puff.scale.set(1.4, .8, 1);
 			puff.castShadow = false;
 		}
 		environment.add(cloud);
 		clouds.push(cloud);
 	}
-	const finishPoint = worldPoint(finish, -1.8);
-	box(environment, .08, 2.7, .08, "#e9e0c1", finishPoint.x + 1, finishPoint.y + 1.35, finishPoint.z);
-	for (let x = 0; x < 4; x++) for (let y = 0; y < 3; y++) box(environment, .3, .3, .04, (x + y) % 2 ? "#f5eed7" : "#285a4c", finishPoint.x + 1.15 + x * .3, finishPoint.y + 2.55 - y * .3, finishPoint.z);
-	const truck = new Group(), wheels = [];
-	scene.add(truck);
-	box(truck, 1.9, .25, 1, "#354c46", 0, .48, 0);
-	box(truck, 1.9, .55, 1.05, "#e7a635", -.08, .88, 0);
-	box(truck, .9, .6, .92, "#f6bf4f", .34, 1.4, 0);
-	box(truck, .65, .38, .94, "#6aafb3", .35, 1.48, 0);
-	box(truck, .94, .1, 1.02, "#f9cd6a", .33, 1.75, 0);
-	box(truck, .6, .13, 1.02, "#ffce6d", -.7, 1.2, 0);
-	for (const x of [-.63, .65]) for (const z of [-.57, .57]) {
-		const wheel = mesh(truck, new CylinderGeometry(.33, .33, .21, 16), "#2c403e", x, .33, z);
-		wheel.rotation.x = Math.PI / 2;
-		wheels.push(wheel);
-		const hub = mesh(truck, new CylinderGeometry(.15, .15, .23, 12), "#d7d8bd", x, .33, z);
-		hub.rotation.x = Math.PI / 2;
+	const birds = [];
+	for (let j = 0; j < 3; j++) {
+		const bird = new Group();
+		const wings = [-1, 1].map((side) => {
+			const wing = box(bird, .7, .05, .22, "#ffffff", side * .35, 0, 0);
+			wing.geometry.translate(side * .35, 0, 0);
+			wing.position.x = 0;
+			wing.castShadow = false;
+			return wing;
+		});
+		bird.position.set(-40 + j * 14, 10 + j * .8, -14);
+		bird.userData = {
+			wings,
+			speed: 1.6 + j * .4,
+			base: bird.position.x
+		};
+		environment.add(bird);
+		birds.push(bird);
 	}
-	for (const z of [-.34, .34]) box(truck, .05, .18, .22, "#fff0b6", .9, .93, z);
-	box(truck, .1, .12, 1.12, "#ede4c9", 1, .55, 0);
+	const fish = box(environment, .5, .2, .18, "#ff8f4d", 0, -6.1, -2, true);
+	fish.castShadow = false;
+	fish.userData = { t: -1 };
+	const finishPoint = worldPoint(finish, -1.8);
+	box(environment, .1, 3, .1, "#f3e7c8", finishPoint.x + 1, finishPoint.y + 1.5, finishPoint.z, true);
+	for (let x = 0; x < 4; x++) for (let y = 0; y < 3; y++) box(environment, .34, .34, .05, (x + y) % 2 ? "#ffffff" : "#2a2438", finishPoint.x + 1.2 + x * .34, finishPoint.y + 2.8 - y * .34, finishPoint.z);
+	const truck = new Group(), body = new Group(), crates = new Group(), wheels = [];
+	root.add(truck);
+	truck.add(body);
+	truck.scale.setScalar(.8);
+	const glassMaterial = new MeshToonMaterial({
+		color: "#bfe9ff",
+		gradientMap: steps,
+		emissive: "#6fb8e6",
+		emissiveIntensity: .35
+	});
+	materials.set("glass", glassMaterial);
+	function rounded(x, y, w, h, r) {
+		const s = new Shape();
+		s.moveTo(x + r, y);
+		s.lineTo(x + w - r, y);
+		s.quadraticCurveTo(x + w, y, x + w, y + r);
+		s.lineTo(x + w, y + h - r);
+		s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+		s.lineTo(x + r, y + h);
+		s.quadraticCurveTo(x, y + h, x, y + h - r);
+		s.lineTo(x, y + r);
+		s.quadraticCurveTo(x, y, x + r, y);
+		return s;
+	}
+	function solid(shape, depth, color, { bevel = .07, ink = .035, glass = false } = {}) {
+		const geometry = new ExtrudeGeometry(shape, {
+			depth,
+			bevelEnabled: bevel > 0,
+			bevelSize: bevel,
+			bevelThickness: bevel,
+			bevelSegments: 4,
+			curveSegments: 14
+		});
+		geometry.computeBoundingBox();
+		const c = geometry.boundingBox.getCenter(new Vector3()), size = geometry.boundingBox.getSize(new Vector3());
+		geometry.translate(-c.x, -c.y, -c.z);
+		const object = new Mesh(geometry, glass ? glassMaterial : material(color));
+		object.position.set(c.x, c.y, 0);
+		object.castShadow = !glass;
+		object.receiveShadow = true;
+		body.add(object);
+		if (ink) {
+			const shell = new Mesh(geometry, outlineMaterial);
+			shell.scale.set((size.x + ink * 2) / size.x, (size.y + ink * 2) / size.y, (size.z + ink * 2) / size.z);
+			object.add(shell);
+		}
+		return object;
+	}
+	const RED = "#e8452c", DARK = "#2d2640", CHROME = "#dfe5ec";
+	solid(rounded(-1.82, .36, 3.7, .24, .1), .78, DARK, { bevel: .05 });
+	solid(rounded(-1.78, .52, 1.8, 1.08, .14), 1.04, "#fff1d0", { bevel: .07 });
+	const cab = new Shape();
+	cab.moveTo(.08, .5);
+	cab.lineTo(.08, 1.2);
+	cab.quadraticCurveTo(.1, 1.44, .34, 1.46);
+	cab.lineTo(.84, 1.46);
+	cab.quadraticCurveTo(1, 1.45, 1.1, 1.3);
+	cab.lineTo(1.32, .99);
+	cab.quadraticCurveTo(1.37, .92, 1.52, .92);
+	cab.lineTo(1.72, .9);
+	cab.quadraticCurveTo(1.84, .88, 1.84, .72);
+	cab.lineTo(1.84, .5);
+	cab.closePath();
+	solid(cab, 1, RED, { bevel: .08 });
+	const glass = new Shape();
+	glass.moveTo(.26, 1.02);
+	glass.lineTo(.26, 1.34);
+	glass.quadraticCurveTo(.27, 1.4, .36, 1.4);
+	glass.lineTo(.84, 1.4);
+	glass.lineTo(1.2, 1.02);
+	glass.closePath();
+	for (const side of [-1, 1]) {
+		const pane = solid(glass, .02, "#000", {
+			bevel: 0,
+			ink: 0,
+			glass: true
+		});
+		pane.position.z = side * .6;
+		const frame = solid(glass, .012, "#2a2438", {
+			bevel: 0,
+			ink: 0
+		});
+		frame.position.z = side * .592;
+		frame.scale.set(1.07, 1.1, 1);
+		box(body, .025, .62, .03, "#a82f1d", .66, .96, side * .6);
+		box(body, .14, .045, .045, CHROME, .9, 1, side * .61);
+	}
+	const slope = new Vector3(.22, -.31, 0).normalize();
+	const windshield = box(body, .03, .4, .86, "#bfe9ff", 1.215, 1.15, 0);
+	windshield.material = glassMaterial;
+	windshield.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), slope);
+	windshield.position.add(new Vector3(slope.y * -1, slope.x, 0).multiplyScalar(.03));
+	box(body, 1.82, .14, 1.14, RED, -.88, .74, 0);
+	for (const side of [-1, 1]) {
+		const emblem = mesh(body, new CircleGeometry(.3, 22), "#ffd54a", -.88, 1.17, side * .63);
+		emblem.castShadow = false;
+		if (side < 0) emblem.rotation.y = Math.PI;
+		const dot = mesh(body, new CircleGeometry(.17, 18), RED, -.88, 1.17, side * .635);
+		dot.castShadow = false;
+		if (side < 0) dot.rotation.y = Math.PI;
+	}
+	box(body, .03, 1, .03, "#c9b48a", -1.84, 1.08, 0);
+	for (const x of [1.9, -1.86]) {
+		const bumper = mesh(body, new CapsuleGeometry(.08, .86, 4, 10), CHROME, x, .5, 0);
+		bumper.rotation.x = Math.PI / 2;
+		outline(bumper, .025);
+	}
+	for (const z of [-.37, .37]) {
+		const light = mesh(body, new SphereGeometry(.13, 14, 10), "#fff6a8", 1.86, .76, z, { emissive: "#ffe27a" });
+		light.scale.x = .45;
+		outline(light, .02);
+		const tail = box(body, .05, .14, .18, "#ff3b30", -1.86, .74, z * 1.15);
+		tail.material = material("#ff3b30", { emissive: "#c01810" });
+	}
+	box(body, .04, .2, .48, "#2a2438", 1.87, .62, 0, true);
+	box(body, .05, .1, .22, "#ffffff", 1.9, .5, 0);
+	for (const side of [-1, 1]) {
+		box(body, .04, .04, .16, "#2a2438", 1.14, 1.12, side * .62);
+		mesh(body, new SphereGeometry(.09, 10, 8), "#2a2438", 1.14, 1.14, side * .74).scale.set(.6, 1, .8);
+	}
+	mesh(body, new CylinderGeometry(.05, .05, .9, 10), "#8d97a5", -.06, 1.55, .5);
+	body.add(crates);
+	const beaconBase = mesh(crates, new CylinderGeometry(.16, .2, .08, 14), DARK, .6, 1.54, 0);
+	beaconBase.castShadow = false;
+	mesh(crates, new SphereGeometry(.13, 12, 10), "#ffb020", .6, 1.64, 0, { emissive: "#ff9a00" });
+	for (const [x, arch] of [[1.18, RED], [-1, DARK]]) for (const z of [-.6, .6]) {
+		const arc = mesh(body, new TorusGeometry(.47, .075, 8, 24, Math.PI), arch, x, .4, z * .97);
+		arc.castShadow = false;
+		const wheel = new Group();
+		wheel.position.set(x, .4, z * 1.03);
+		const tire = mesh(wheel, new CylinderGeometry(.4, .4, .3, 26), "#26212f");
+		tire.rotation.x = Math.PI / 2;
+		const rim = mesh(wheel, new CylinderGeometry(.25, .25, .32, 20), CHROME);
+		rim.rotation.x = Math.PI / 2;
+		const hub = mesh(wheel, new CylinderGeometry(.1, .1, .35, 12), "#8d97a5");
+		hub.rotation.x = Math.PI / 2;
+		for (let k = 0; k < 5; k++) {
+			const a = k / 5 * Math.PI * 2;
+			const bolt = mesh(wheel, new CylinderGeometry(.026, .026, .37, 6), "#4a4458", Math.cos(a) * .17, Math.sin(a) * .17, 0);
+			bolt.rotation.x = Math.PI / 2;
+			bolt.castShadow = false;
+		}
+		body.add(wheel);
+		wheels.push(wheel);
+	}
+	const particles = createParticles(root);
 	const debris = /* @__PURE__ */ new Map();
+	let knownEdges = null, previewBeam = null, shake = 0, smokeClock = 0, previousPose = null, elapsed = 0, wasBroken = false;
+	const splashed = /* @__PURE__ */ new Set();
 	function clearBridge() {
-		bridge.traverse((o) => o.geometry?.dispose());
+		bridge.traverse((o) => {
+			if (o.geometry && o.geometry.type !== "BoxGeometry") o.geometry.dispose();
+		});
 		bridge.clear();
 		debris.clear();
+		previewBeam = null;
 	}
 	function setBridge(edges, selectedId, preview) {
 		clearBridge();
+		const now = performance.now();
+		const fresh = knownEdges ? edges.filter((e) => e.isPlayerBuilt && !knownEdges.has(e.id)) : [];
+		knownEdges = new Set(edges.map((e) => e.id));
 		for (const edge of edges) {
 			const a = level.nodes.find((n) => n.id === edge.fromNodeId), b = level.nodes.find((n) => n.id === edge.toNodeId);
 			const group = new Group();
 			bridge.add(group);
-			const color = selectedId === edge.id ? "#ffc45b" : edge.type === "road" ? "#576c67" : "#c7975e";
+			const selected = selectedId === edge.id;
+			const A = worldPoint(a, 0), B = worldPoint(b, 0);
 			if (edge.type === "road") {
-				beam(group, worldPoint(a, 0), worldPoint(b, 0), .22, 2.2, color);
-				for (const z of [-1.13, 1.13]) beam(group, worldPoint(a, z).add(new Vector3(0, -.17, 0)), worldPoint(b, z).add(new Vector3(0, -.17, 0)), .26, .16, "#dfbb78");
-				const len = worldPoint(a).distanceTo(worldPoint(b));
-				for (let j = 0; j < Math.floor(len / .65); j++) {
-					const p = worldPoint(a, 0).lerp(worldPoint(b, 0), (j + .5) / Math.floor(len / .65));
-					const stripe = box(group, .3, .025, .07, "#eee4b7", p.x, p.y + .13, 0);
-					stripe.rotation.z = Math.atan2(a.y - b.y, b.x - a.x);
+				const length = A.distanceTo(B);
+				const angle = Math.atan2(B.y - A.y, B.x - A.x);
+				for (const z of [-.95, .95]) beam(group, A.clone().add(new Vector3(0, -.2, z)), B.clone().add(new Vector3(0, -.2, z)), .2, .2, selected ? "#ffc45b" : "#7a4a22", true);
+				const count = Math.max(1, Math.round(length / .5));
+				for (let j = 0; j < count; j++) {
+					const p = A.clone().lerp(B, (j + .5) / count);
+					const plank = box(group, length / count * .9, .14, 2.06, selected ? "#ffd98a" : j % 2 ? "#dba765" : "#c98e4c", p.x, p.y, 0);
+					plank.rotation.z = angle;
 				}
-			} else for (const z of [-1.18, 1.18]) beam(group, worldPoint(a, z), worldPoint(b, z), .2, .2, color);
-			const origin = worldPoint(a, 0).lerp(worldPoint(b, 0), .5);
+				for (const z of [-1.08, 1.08]) {
+					beam(group, A.clone().add(new Vector3(0, .55, z)), B.clone().add(new Vector3(0, .55, z)), .09, .09, "#a9bccf", true);
+					const posts = Math.max(1, Math.round(length / 1.1));
+					for (let j = 0; j <= posts; j++) {
+						const p = A.clone().lerp(B, j / posts);
+						box(group, .1, .55, .1, "#8497ab", p.x, p.y + .28, z);
+					}
+				}
+			} else for (const z of [-1.18, 1.18]) {
+				beam(group, worldPoint(a, z), worldPoint(b, z), .26, .26, selected ? "#ffc45b" : "#8fa6bd", true);
+				beam(group, worldPoint(a, z), worldPoint(b, z), .1, .3, "#ff8a3d");
+			}
+			const origin = A.clone().lerp(B, .5);
 			group.children.forEach((child) => child.position.sub(origin));
 			group.position.copy(origin);
 			group.userData.origin = origin;
+			if (fresh.some((e) => e.id === edge.id)) {
+				group.userData.born = now;
+				group.scale.setScalar(.01);
+				for (const end of [A, B]) particles.emit(end.clone().setZ(0), {
+					count: 9,
+					color: "#f3d9a8",
+					speed: 1.3,
+					spread: 1.2,
+					up: 1.1,
+					life: .55,
+					size: .14
+				});
+			}
 			debris.set(edge.id, group);
 		}
 		for (const n of level.nodes) for (const z of [-1.2, 1.2]) {
 			const p = worldPoint(n, z);
-			const joint = mesh(bridge, new CylinderGeometry(.16, .16, .12, 12), n.type === "anchor" ? "#e6b953" : "#e9dab3", p.x, p.y, p.z);
-			joint.rotation.x = Math.PI / 2;
+			outline(mesh(bridge, new SphereGeometry(n.type === "anchor" ? .3 : .25, 12, 10), n.type === "anchor" ? "#ffd54a" : "#c7d5e3", p.x, p.y, p.z), .04);
 		}
-		if (preview) beam(bridge, worldPoint(preview.a), worldPoint(preview.b), .11, .11, preview.ok ? "#82cba6" : "#dd775f");
+		if (preview) {
+			previewBeam = beam(bridge, worldPoint(preview.a), worldPoint(preview.b), .14, .14, preview.ok ? "#5fe08a" : "#ff6b4a");
+			previewBeam.material = new MeshBasicMaterial({
+				color: preview.ok ? "#5fe08a" : "#ff6b4a",
+				transparent: true,
+				opacity: .8
+			});
+		}
 	}
-	let camera, previousPose = null, elapsed = 0;
+	let camera;
 	function resize(nextCamera, width, height) {
 		camera = nextCamera;
 		renderer.setSize(width, height, false);
@@ -37567,16 +41100,54 @@ function createWorld(canvas, level) {
 		elapsed += dt;
 		const animate = (frame.phase === "building" || frame.phase === "testing") && !frame.reducedMotion;
 		const time = animate ? elapsed : 0;
-		const vertices = waterGeometry.attributes.position;
+		const now = performance.now();
 		if (animate) {
-			for (let i = 0; i < vertices.count; i++) vertices.setY(i, Math.sin(vertices.getX(i) * .6 + time) * .055 + Math.cos(vertices.getZ(i) * .5 + time * .7) * .04);
+			const vertices = waterGeometry.attributes.position;
+			for (let i = 0; i < vertices.count; i++) vertices.setY(i, Math.sin(vertices.getX(i) * .6 + time) * .07 + Math.cos(vertices.getZ(i) * .5 + time * .7) * .05);
 			vertices.needsUpdate = true;
 			glints.forEach((g, i) => {
 				g.position.x = g.userData.origin + Math.sin(time * .45 + i) * .8;
+				g.visible = Math.sin(time * 2 + i * 1.7) > -.5;
 			});
 			clouds.forEach((c, i) => {
-				c.position.x = -28 + i * 14 + Math.sin(time * .035 + i) * 2;
+				c.position.x = -34 + i * 11 + Math.sin(time * .04 + i) * 3;
 			});
+			birds.forEach((bird) => {
+				const { wings, speed, base } = bird.userData;
+				bird.position.x = (base + 45 + time * speed) % 90 - 45;
+				bird.position.y += Math.sin(time * 2 + base) * .002;
+				wings[0].rotation.z = Math.sin(time * 11) * .7;
+				wings[1].rotation.z = -Math.sin(time * 11) * .7;
+			});
+			foam.forEach(({ ring, phase }) => {
+				const k = 1 + Math.sin(time * 1.6 + phase) * .06;
+				ring.scale.set(1.5 * k, 3.2 * k, 1);
+				ring.material.opacity = .4 + Math.sin(time * 1.6 + phase) * .15;
+			});
+			const jump = fish.userData;
+			if (jump.t < 0 && Math.sin(time * .9) > .985) {
+				jump.t = 0;
+				fish.position.x = Math.sin(time * 13.1) * 9 | 0;
+			}
+			if (jump.t >= 0) {
+				jump.t += dt;
+				const s = jump.t / 1.1;
+				fish.position.y = -5.5 + Math.sin(Math.min(1, s) * Math.PI) * 2.4;
+				fish.rotation.z = Math.cos(Math.min(1, s) * Math.PI) * .9;
+				if (s >= 1) {
+					jump.t = -1;
+					fish.position.y = -6.1;
+					particles.emit(new Vector3(fish.position.x, -5, -2), {
+						count: 8,
+						color: "#e9fbff",
+						speed: 2,
+						up: 1.6,
+						life: .6,
+						size: .1
+					});
+				}
+			}
+			if (previewBeam) previewBeam.material.opacity = .55 + Math.sin(time * 8) * .25;
 		}
 		const pose = frame.pose ?? {
 			x: start.x - 48,
@@ -37585,30 +41156,93 @@ function createWorld(canvas, level) {
 		};
 		const p = worldPoint(pose, 0);
 		const failureTime = frame.broken ? frame.collapseSeconds : 0;
-		truck.position.set(p.x, p.y + .1 - failureTime * failureTime * 7, 0);
-		truck.rotation.z = -pose.angle * Math.PI / 180 - failureTime * .65;
+		const drop = failureTime * failureTime * 7;
+		truck.position.set(p.x, p.y + .1 - drop, 0);
+		truck.rotation.z = -pose.angle * Math.PI / 180 - failureTime * .75;
+		const travelled = previousPose ? p.distanceTo(previousPose) : 0;
+		body.position.y = animate && frame.phase === "testing" && travelled > 5e-4 && !frame.broken ? Math.sin(time * 24) * .022 : 0;
+		crates.rotation.z = frame.broken ? Math.min(1, failureTime) * .5 : body.position.y * 1.5;
 		if (previousPose && animate && frame.phase === "testing") {
-			const distance = p.distanceTo(previousPose);
 			wheels.forEach((w) => {
-				w.rotation.y -= distance / .33;
+				w.rotation.z -= travelled / .32;
 			});
+			smokeClock += dt;
+			if (travelled > 5e-4 && !frame.broken && smokeClock > .07) {
+				smokeClock = 0;
+				particles.emit(new Vector3(p.x - .05, p.y + 1.85, .4), {
+					count: 1,
+					color: "#e8e6f0",
+					speed: .5,
+					up: 1.2,
+					spread: .4,
+					gravity: -.6,
+					life: .8,
+					size: .2,
+					grow: true
+				});
+			}
 		}
 		previousPose = p;
+		if (frame.broken && !wasBroken) {
+			shake = frame.reducedMotion ? 0 : .34;
+			splashed.clear();
+		}
+		if (!frame.broken) splashed.clear();
+		wasBroken = !!frame.broken;
 		const collapsed = [];
+		const splash = (key, at, strength) => {
+			if (splashed.has(key)) return;
+			splashed.add(key);
+			particles.emit(new Vector3(at.x, -5, at.z), {
+				count: 22 * strength,
+				color: "#dff7ff",
+				speed: 3.2,
+				up: 2.6,
+				spread: 1.4,
+				gravity: 9,
+				life: .9,
+				size: .14
+			});
+			if (!frame.reducedMotion) shake = Math.max(shake, .16 * strength);
+		};
 		debris.forEach((g, id) => {
 			const weak = frame.broken && frame.collapseEdgeIds.includes(id);
+			const seed = hash(id);
 			g.position.copy(g.userData.origin);
-			if (weak) g.position.y -= failureTime * failureTime * 7;
-			g.rotation.z = weak ? -failureTime * .65 : 0;
+			const born = g.userData.born;
+			let pop = 1;
+			if (born !== void 0) {
+				const age = (now - born) / 280;
+				if (age >= 1 || frame.reducedMotion) delete g.userData.born;
+				else pop = Math.max(.01, easeOutBack(Math.max(0, age)));
+			}
+			if (weak) {
+				const swing = failureTime * (.5 + seed * .9) * (seed > .5 ? 1 : -1);
+				g.position.y -= drop * (.8 + seed * .5);
+				g.position.x += swing * failureTime * .6;
+				g.rotation.z = swing;
+				g.rotation.x = failureTime * .35 * seed;
+				if (g.position.y < -4.699999999999999) splash(id, g.position, .8);
+			} else g.rotation.set(0, 0, 0);
+			g.scale.setScalar(pop);
 			if (g.position.y < g.userData.origin.y) collapsed.push(id);
 		});
+		if (frame.broken && truck.position.y < -4.3) splash("truck", truck.position, 1.3);
+		particles.update(dt);
+		shake = Math.max(0, shake - dt * .9);
+		const jitter = shake > .001 ? shake * shake * 2.4 : 0;
+		root.position.set((Math.random() - .5) * jitter, (Math.random() - .5) * jitter, 0);
 		canvas.dataset.collapsedEdges = JSON.stringify(collapsed);
 		canvas.dataset.vehicleX = String(truck.position.x);
 		if (camera) renderer.render(scene, camera);
 	}
 	function dispose() {
 		scene.traverse((o) => o.geometry?.dispose());
+		particles.dispose();
 		materials.forEach((m) => m.dispose());
+		outlineMaterial.dispose();
+		steps.dispose();
+		sky.dispose();
 		sun.shadow.map?.dispose();
 		renderer.dispose();
 	}
@@ -37620,18 +41254,23 @@ function createWorld(canvas, level) {
 	};
 }
 // src/games/bridge-master/components/BridgeScene.jsx
-function BridgeScene({ state, edges, dispatch, t, pose, broken = false, collapseSeconds = 0, countdown = 0, tutorialNodeId, hintId, reducedMotion = false }) {
-	const container = useRef(null), canvas = useRef(null), world = useRef(null), frame = useRef({}), drag = useRef(null);
+function BridgeScene({ state, edges, dispatch, t, pose, broken = false, collapseSeconds = 0, countdown = 0, tutorialNodeId, hintId, reducedMotion = false, hudTop, hudBottom }) {
+	const container = useRef(null), canvas = useRef(null), world = useRef(null), frame = useRef({}), drag = useRef(null), topRef = useRef(null), bottomRef = useRef(null), previousEdges = useRef(null), projectedRef = useRef(null);
 	const [size, setSize] = useState({
 		width: 800,
 		height: 470
 	});
-	const [view, setView] = useState("depth"), [yaw, setYaw] = useState(.12), [hover, setHover] = useState(null);
+	const [insets, setInsets] = useState({
+		top: 0,
+		bottom: 0
+	});
+	const [view, setView] = useState("depth"), [yaw, setYaw] = useState(.12), [hover, setHover] = useState(null), [pops, setPops] = useState([]);
 	const [ready, setReady] = useState(false), [unavailable, setUnavailable] = useState(false);
-	const camera = useMemo(() => createCamera(size.width, size.height, view, yaw), [
+	const camera = useMemo(() => createCamera(size.width, size.height, view, yaw, insets), [
 		size,
 		view,
-		yaw
+		yaw,
+		insets
 	]);
 	const { level } = state;
 	const locked = state.phase !== "building";
@@ -37650,6 +41289,9 @@ function BridgeScene({ state, edges, dispatch, t, pose, broken = false, collapse
 	]);
 	const projected = new Map(level.nodes.map((n) => [n.id, projectNode(n, camera, size.width, size.height)]));
 	useEffect(() => {
+		projectedRef.current = projected;
+	});
+	useEffect(() => {
 		if (typeof ResizeObserver === "undefined") return;
 		const observer = new ResizeObserver(([entry]) => {
 			const { width, height } = entry.contentRect;
@@ -37659,6 +41301,20 @@ function BridgeScene({ state, edges, dispatch, t, pose, broken = false, collapse
 			});
 		});
 		observer.observe(container.current);
+		return () => observer.disconnect();
+	}, []);
+	useLayoutEffect(() => {
+		const measure = () => setInsets((previous) => {
+			const next = {
+				top: topRef.current?.offsetHeight ?? 0,
+				bottom: bottomRef.current?.offsetHeight ?? 0
+			};
+			return previous.top === next.top && previous.bottom === next.bottom ? previous : next;
+		});
+		measure();
+		if (typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver(measure);
+		[topRef.current, bottomRef.current].forEach((el) => el && observer.observe(el));
 		return () => observer.disconnect();
 	}, []);
 	useEffect(() => {
@@ -37740,6 +41396,36 @@ function BridgeScene({ state, edges, dispatch, t, pose, broken = false, collapse
 		state.phase,
 		level
 	]);
+	useEffect(() => {
+		const before = previousEdges.current;
+		previousEdges.current = {
+			edges,
+			levelId: level.id
+		};
+		if (!before || before.levelId !== level.id || before.edges === edges) return;
+		const known = new Set(before.edges.map((e) => e.id)), current = new Set(edges.map((e) => e.id));
+		const changes = [...edges.filter((e) => e.isPlayerBuilt && !known.has(e.id)).map((e) => [e, "-"]), ...before.edges.filter((e) => e.isPlayerBuilt && !current.has(e.id)).map((e) => [e, "+"])];
+		if (!changes.length) return;
+		const points = projectedRef.current;
+		setPops((list) => [...list, ...changes.map(([edge, sign]) => {
+			const a = points.get(edge.fromNodeId), b = points.get(edge.toNodeId);
+			return {
+				key: `${edge.id}:${sign}:${list.length}:${edges.length}`,
+				x: (a.x + b.x) / 2,
+				y: (a.y + b.y) / 2 - 18,
+				text: `${sign}${edge.cost}`,
+				gain: sign === "+"
+			};
+		})].slice(-6));
+	}, [edges, level.id]);
+	useEffect(() => {
+		if (state.phase !== "building") setPops([]);
+	}, [state.phase]);
+	useEffect(() => {
+		if (!pops.length) return;
+		const timer = setTimeout(() => setPops([]), 1100);
+		return () => clearTimeout(timer);
+	}, [pops]);
 	function setCamera(next) {
 		setView(next);
 		setYaw(next === "front" ? 0 : .12);
@@ -37752,7 +41438,11 @@ function BridgeScene({ state, edges, dispatch, t, pose, broken = false, collapse
 	}
 	return /* @__PURE__ */ React.createElement("div", {
 		className: "scene-wrap",
-		ref: container
+		ref: container,
+		style: {
+			"--inset-top": `${insets.top}px`,
+			"--inset-bottom": `${insets.bottom}px`
+		}
 	}, /* @__PURE__ */ React.createElement("canvas", {
 		ref: canvas,
 		className: "world-canvas",
@@ -37816,9 +41506,10 @@ function BridgeScene({ state, edges, dispatch, t, pose, broken = false, collapse
 		y1: projected.get(selected.id).y,
 		x2: projected.get(target.id).x,
 		y2: projected.get(target.id).y,
-		stroke: preview.ok ? "#83ebba" : "#ff8c70",
-		strokeWidth: "3",
-		strokeDasharray: "6 5",
+		stroke: preview.ok ? "#5fe08a" : "#ff6b4a",
+		strokeWidth: "4",
+		strokeLinecap: "round",
+		strokeDasharray: "2 9",
 		pointerEvents: "none"
 	}), level.nodes.map((node) => {
 		const p = projected.get(node.id), active = state.selectedNodeId === node.id, cue = tutorialNodeId === node.id;
@@ -37828,6 +41519,7 @@ function BridgeScene({ state, edges, dispatch, t, pose, broken = false, collapse
 			tabIndex: locked ? -1 : 0,
 			"aria-disabled": locked,
 			"aria-label": t.node(node.id),
+			"data-tour": `node-${node.id}`,
 			"aria-pressed": active,
 			"aria-describedby": cue ? hintId : void 0,
 			className: `node-marker ${active ? "selected" : ""} ${cue ? "tutorial-node" : ""}`,
@@ -37847,37 +41539,57 @@ function BridgeScene({ state, edges, dispatch, t, pose, broken = false, collapse
 			cy: p.y,
 			r: "22",
 			fill: "transparent"
+		}), (active || cue) && !locked && /* @__PURE__ */ React.createElement("circle", {
+			className: "node-ring",
+			cx: p.x,
+			cy: p.y,
+			r: "17",
+			fill: "none",
+			stroke: active ? "#ffd54a" : "#ffffff",
+			strokeWidth: "3"
 		}), /* @__PURE__ */ React.createElement("circle", {
 			className: "node-halo",
 			cx: p.x,
 			cy: p.y,
-			r: "16",
-			fill: active ? "#efb74755" : "#f9f7df25",
-			stroke: active || cue ? "#ffd475" : "#fff9df88",
-			strokeWidth: cue ? 2.5 : 1
+			r: "15",
+			fill: active ? "#ffd54a66" : "#ffffff33",
+			stroke: active || cue ? "#ffd54a" : "#ffffffcc",
+			strokeWidth: active || cue ? 3 : 2
 		}), /* @__PURE__ */ React.createElement("circle", {
+			className: "node-core",
 			cx: p.x,
 			cy: p.y,
-			r: node.type === "anchor" ? 7 : 6,
-			fill: active ? "#ffce68" : "#f5f1d5",
-			stroke: "#29574d",
-			strokeWidth: "2.5"
+			r: node.type === "anchor" ? 8.5 : 7.5,
+			fill: active ? "#ffd54a" : node.type === "anchor" ? "#ffe9a3" : "#ffffff",
+			stroke: "#5b351a",
+			strokeWidth: "3.5"
 		}), cue && /* @__PURE__ */ React.createElement("path", {
-			d: `M${p.x - 5} ${p.y - 28}l5 5 5-5`,
+			d: `M${p.x - 6} ${p.y - 32}l6 6 6-6`,
 			fill: "none",
-			stroke: "#fff0ad",
-			strokeWidth: "3",
+			stroke: "#ffd54a",
+			strokeWidth: "4",
+			strokeLinecap: "round",
+			strokeLinejoin: "round",
 			pointerEvents: "none"
 		}), /* @__PURE__ */ React.createElement("text", {
 			className: "node-label",
 			x: p.x,
-			y: p.y + 30,
+			y: p.y + 33,
 			textAnchor: "middle",
 			pointerEvents: "none"
 		}, node.id.toUpperCase()));
-	})), /* @__PURE__ */ React.createElement("div", { className: "scene-status" }, /* @__PURE__ */ React.createElement("span", { className: `status-dot ${state.phase === "testing" ? "live" : ""}` }), state.phase === "testing" ? t.testing : t.building), /* @__PURE__ */ React.createElement("div", {
+	})), pops.map((pop) => /* @__PURE__ */ React.createElement("span", {
+		key: pop.key,
+		className: `cost-pop ${pop.gain ? "gain" : ""}`,
+		style: {
+			left: pop.x,
+			top: pop.y
+		},
+		"aria-hidden": "true"
+	}, pop.text)), /* @__PURE__ */ React.createElement("div", { className: "scene-status" }, /* @__PURE__ */ React.createElement("span", { className: `status-dot ${state.phase === "testing" ? "live" : ""}` }), state.phase === "testing" ? t.testing : t.building), /* @__PURE__ */ React.createElement("div", {
 		className: "camera-controls",
-		"aria-label": t.camera
+		"aria-label": t.camera,
+		"data-tour": "camera"
 	}, /* @__PURE__ */ React.createElement("button", {
 		"aria-label": t.depthView,
 		"aria-pressed": view === "depth",
@@ -37887,58 +41599,29 @@ function BridgeScene({ state, edges, dispatch, t, pose, broken = false, collapse
 		"aria-pressed": view === "front",
 		onClick: () => setCamera("front")
 	}, t.frontShort)), /* @__PURE__ */ React.createElement("div", {
-		className: "world-caption",
-		"aria-hidden": "true"
-	}, /* @__PURE__ */ React.createElement("span", null, t.worldName), /* @__PURE__ */ React.createElement("span", null, t.orbitHint)), unavailable && /* @__PURE__ */ React.createElement("div", {
+		className: "hud-top",
+		ref: topRef
+	}, hudTop), /* @__PURE__ */ React.createElement("div", {
+		className: "hud-bottom",
+		ref: bottomRef
+	}, hudBottom), unavailable && /* @__PURE__ */ React.createElement("div", {
 		className: "webgl-error",
 		role: "alert"
 	}, t.webglError), countdown > 0 && /* @__PURE__ */ React.createElement("div", {
 		className: "countdown",
 		"aria-live": "polite"
-	}, /* @__PURE__ */ React.createElement("span", null, countdown), /* @__PURE__ */ React.createElement("small", null, t.ready)));
-}
-// src/games/bridge-master/components/Icon.jsx
-var paths = {
-	bridge: "M3 17h18M4 17V7m16 10V7M4 9c5 7 11 7 16 0M8 13v4m4-2v2m4-4v4",
-	road: "M3 8h18M3 16h18M6 12h2m4 0h2m4 0h2",
-	support: "M3 19 12 4l9 15H3Zm9-15v15",
-	undo: "M9 5 4 10l5 5M4 10h10a6 6 0 0 1 0 12",
-	trash: "M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7",
-	reset: "M4 10a8 8 0 1 1 1 9M4 4v6h6",
-	play: "m8 4 12 8-12 8V4Z",
-	pause: "M8 4v16M16 4v16",
-	sound: "M11 4 6 8H3v8h3l5 4V4Zm4 4a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14",
-	muted: "M11 4 6 8H3v8h3l5 4V4Zm5 5 5 6m0-6-5 6",
-	arrow: "M4 12h16m-6-6 6 6-6 6",
-	grid: "M3 3h6v6H3V3Zm12 0h6v6h-6V3ZM3 15h6v6H3v-6Zm12 0h6v6h-6v-6Z",
-	check: "m5 12 4 4L19 6",
-	close: "m6 6 12 12M6 18 18 6",
-	bulb: "M9 18h6m-6 3h6M8 15c-6-8 3-15 8-9 3 4 0 7-1 9H8Z",
-	star: "m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z",
-	flag: "M5 22V3m0 0h13l-3 4 3 4H5"
-};
-function Icon({ name, size = 20, ...props }) {
-	return /* @__PURE__ */ React.createElement("svg", {
-		width: size,
-		height: size,
-		viewBox: "0 0 24 24",
-		fill: "none",
-		stroke: "currentColor",
-		strokeWidth: "1.8",
-		strokeLinecap: "round",
-		strokeLinejoin: "round",
-		"aria-hidden": "true",
-		...props
-	}, /* @__PURE__ */ React.createElement("path", { d: paths[name] ?? paths.bridge }));
+	}, /* @__PURE__ */ React.createElement("span", { key: countdown }, countdown), /* @__PURE__ */ React.createElement("small", null, t.ready)));
 }
 // src/games/bridge-master/components/GameToolbar.jsx
 function GameToolbar({ state, dispatch, t, tutorialTestReady, hintId }) {
 	const locked = state.phase !== "building";
 	return /* @__PURE__ */ React.createElement("div", { className: "toolbar" }, /* @__PURE__ */ React.createElement("span", { className: "section-label tool-heading" }, t.buildTools), /* @__PURE__ */ React.createElement("div", {
 		className: "tool-materials",
-		"aria-label": t.material
+		"aria-label": t.material,
+		"data-tour": "materials"
 	}, ["road", "support"].map((type) => /* @__PURE__ */ React.createElement("button", {
 		key: type,
+		"data-tour": `tool-${type}`,
 		className: `material-button ${state.activeEdgeType === type ? "active" : ""}`,
 		disabled: locked,
 		onClick: () => dispatch({
@@ -37951,7 +41634,10 @@ function GameToolbar({ state, dispatch, t, tutorialTestReady, hintId }) {
 		name: "check",
 		size: 15,
 		className: "material-check"
-	})))), /* @__PURE__ */ React.createElement("div", { className: "edit-tools" }, [
+	})))), /* @__PURE__ */ React.createElement("div", {
+		className: "edit-tools",
+		"data-tour": "edit"
+	}, [
 		[
 			"undo",
 			"UNDO",
@@ -37976,6 +41662,7 @@ function GameToolbar({ state, dispatch, t, tutorialTestReady, hintId }) {
 		onClick: () => dispatch({ type })
 	}, /* @__PURE__ */ React.createElement(Icon, { name: key === "remove" ? "trash" : key }), /* @__PURE__ */ React.createElement("span", null, t.toolShort[key])))), /* @__PURE__ */ React.createElement("button", {
 		className: `primary test-button ${tutorialTestReady ? "tutorial-ready" : ""}`,
+		"data-tour": "test",
 		"aria-describedby": tutorialTestReady ? hintId : void 0,
 		disabled: locked,
 		onClick: () => dispatch({ type: "START_TEST" })
@@ -37985,7 +41672,7 @@ function GameToolbar({ state, dispatch, t, tutorialTestReady, hintId }) {
 	}, "↵")));
 }
 // src/games/bridge-master/components/Modal.jsx
-function Modal({ title, children, className = "", eyebrow }) {
+function Modal({ title, children, className = "", eyebrow, custom = false }) {
 	const ref = useRef(null);
 	useEffect(() => {
 		const previous = document.activeElement;
@@ -38011,16 +41698,44 @@ function Modal({ title, children, className = "", eyebrow }) {
 		"aria-label": title,
 		className: `modal ${className}`,
 		onKeyDown: trap
-	}, eyebrow && /* @__PURE__ */ React.createElement("span", { className: "modal-eyebrow" }, eyebrow), /* @__PURE__ */ React.createElement("h2", null, title), children));
+	}, !custom && eyebrow && /* @__PURE__ */ React.createElement("span", { className: "modal-eyebrow" }, eyebrow), !custom && /* @__PURE__ */ React.createElement("h2", null, title), children));
 }
 // src/games/bridge-master/components/ResultModal.jsx
-function ResultModal({ result, t, onRetry, onReplay, onNext, onSelect, isLast, reasonCode, levelHint }) {
+var confetti = Array.from({ length: 30 }, (_, i) => ({
+	left: (i * 37 + 11) % 100,
+	delay: i % 10 * .07,
+	fall: 1.7 + i % 5 * .28,
+	color: [
+		"#ffd54a",
+		"#ff6b4a",
+		"#5fe08a",
+		"#6c9bff",
+		"#ff8bd0"
+	][i % 5],
+	spin: (i % 2 ? 1 : -1) * (240 + i * 23),
+	size: 7 + i % 4 * 2
+}));
+function ResultModal({ result, t, onRetry, onReplay, onNext, onSelect, isLast, reasonCode, levelHint, saveLine }) {
 	const success = result.status === "completed";
 	return /* @__PURE__ */ React.createElement(Modal, {
 		title: success ? t.success : t.failed,
 		eyebrow: success ? t.levelComplete : t.tryAgain,
 		className: `result-modal ${success ? "result-success" : "result-failed"}`
-	}, /* @__PURE__ */ React.createElement("div", {
+	}, success && /* @__PURE__ */ React.createElement("div", {
+		className: "confetti",
+		"aria-hidden": "true"
+	}, confetti.map((c, i) => /* @__PURE__ */ React.createElement("i", {
+		key: i,
+		style: {
+			left: `${c.left}%`,
+			background: c.color,
+			width: c.size,
+			height: c.size * 1.6,
+			"--delay": `${c.delay}s`,
+			"--fall": `${c.fall}s`,
+			"--spin": `${c.spin}deg`
+		}
+	}))), /* @__PURE__ */ React.createElement("div", {
 		className: "stars",
 		"aria-label": t.stars(result.stars)
 	}, [
@@ -38031,8 +41746,9 @@ function ResultModal({ result, t, onRetry, onReplay, onNext, onSelect, isLast, r
 		key: n,
 		name: "star",
 		size: 40,
-		className: n <= result.stars ? "earned" : "empty"
-	}))), /* @__PURE__ */ React.createElement("p", null, success ? t.successBody : t.failureReasons?.[reasonCode] ?? t.failedBody), !success && levelHint && /* @__PURE__ */ React.createElement("p", null, levelHint), /* @__PURE__ */ React.createElement("div", { className: "result-stats" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, result.score), /* @__PURE__ */ React.createElement("span", null, t.score)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, result.materialUsed), /* @__PURE__ */ React.createElement("span", null, t.used)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, Math.round(result.stabilityScore * 100), "%"), /* @__PURE__ */ React.createElement("span", null, t.stability))), /* @__PURE__ */ React.createElement("p", { className: "attempt-summary" }, t.attempts, ": ", /* @__PURE__ */ React.createElement("b", null, result.attempts), " · ", t.activeTime, ": ", /* @__PURE__ */ React.createElement("b", null, result.durationSeconds, " ", t.seconds)), /* @__PURE__ */ React.createElement("div", { className: "modal-actions" }, success ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", {
+		className: n <= result.stars ? "earned" : "empty",
+		style: { "--i": n }
+	}))), /* @__PURE__ */ React.createElement("p", null, success ? t.successBody : t.failureReasons?.[reasonCode] ?? t.failedBody), !success && levelHint && /* @__PURE__ */ React.createElement("p", null, levelHint), /* @__PURE__ */ React.createElement("div", { className: "result-stats" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, result.score), /* @__PURE__ */ React.createElement("span", null, t.score)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, result.materialUsed), /* @__PURE__ */ React.createElement("span", null, t.used)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, Math.round(result.stabilityScore * 100), "%"), /* @__PURE__ */ React.createElement("span", null, t.stability))), /* @__PURE__ */ React.createElement("p", { className: "attempt-summary" }, t.attempts, ": ", /* @__PURE__ */ React.createElement("b", null, result.attempts), " · ", t.activeTime, ": ", /* @__PURE__ */ React.createElement("b", null, result.durationSeconds, " ", t.seconds)), saveLine, /* @__PURE__ */ React.createElement("div", { className: "modal-actions" }, success ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", {
 		className: "primary",
 		onClick: isLast ? onSelect : onNext
 	}, isLast ? t.levels : t.next, /* @__PURE__ */ React.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ React.createElement("button", {
@@ -38056,12 +41772,15 @@ function LevelSelect({ levels, t, onSelect, onClose, scores, currentLevelId }) {
 		title: t.chooseLevel,
 		eyebrow: t.yourJourney,
 		className: "levels-modal"
-	}, /* @__PURE__ */ React.createElement("p", null, t.chooseLevelBody), /* @__PURE__ */ React.createElement("div", { className: "level-grid" }, levels.slice(start, start + pageSize).map((level, index) => /* @__PURE__ */ React.createElement("button", {
-		key: level.id,
-		className: `level-choice ${currentLevelId === level.id ? "is-current" : ""} ${scores[level.id] ? "is-complete" : ""}`,
-		"aria-label": t.levelLabel(start + index + 1, level.title),
-		onClick: () => onSelect(level)
-	}, /* @__PURE__ */ React.createElement("span", null, String(start + index + 1).padStart(2, "0")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("b", null, level.title, currentLevelId === level.id && /* @__PURE__ */ React.createElement("em", null, t.currentLevel)), /* @__PURE__ */ React.createElement("small", null, level.subtitle)), /* @__PURE__ */ React.createElement("span", { "aria-label": t.stars(scores[level.id] ?? 0) }, "★".repeat(scores[level.id] ?? 0), "☆".repeat(3 - (scores[level.id] ?? 0)))))), /* @__PURE__ */ React.createElement("div", { className: "level-footer" }, pageCount > 1 && /* @__PURE__ */ React.createElement("nav", {
+	}, /* @__PURE__ */ React.createElement("p", null, t.chooseLevelBody), /* @__PURE__ */ React.createElement("div", { className: "level-grid" }, levels.slice(start, start + pageSize).map((level, index) => {
+		const text = levelText(level, t);
+		return /* @__PURE__ */ React.createElement("button", {
+			key: level.id,
+			className: `level-choice ${currentLevelId === level.id ? "is-current" : ""} ${scores[level.id] ? "is-complete" : ""}`,
+			"aria-label": t.levelLabel(start + index + 1, text.title),
+			onClick: () => onSelect(level)
+		}, /* @__PURE__ */ React.createElement("span", null, String(start + index + 1).padStart(2, "0")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("b", null, text.title, currentLevelId === level.id && /* @__PURE__ */ React.createElement("em", null, t.currentLevel)), /* @__PURE__ */ React.createElement("small", null, text.subtitle)), /* @__PURE__ */ React.createElement("span", { "aria-label": t.stars(scores[level.id] ?? 0) }, "★".repeat(scores[level.id] ?? 0), "☆".repeat(3 - (scores[level.id] ?? 0))));
+	})), /* @__PURE__ */ React.createElement("div", { className: "level-footer" }, pageCount > 1 && /* @__PURE__ */ React.createElement("nav", {
 		className: "level-pagination",
 		"aria-label": t.levelPages
 	}, /* @__PURE__ */ React.createElement("button", {
@@ -38088,36 +41807,522 @@ function LevelSelect({ levels, t, onSelect, onClose, scores, currentLevelId }) {
 		onClick: onClose
 	}, t.close)));
 }
+// src/games/bridge-master/components/IntroModal.jsx
+var nodes = [
+	120,
+	185,
+	250,
+	315,
+	380
+];
+var apex = {
+	x: 250,
+	y: 52
+};
+var wave = `M-648 186q18-8 36 0${" t36 0".repeat(52)}`;
+var star = "M0-10 3-3.4 10-2.8 4.6 2 6.2 9 0 5.3-6.2 9-4.6 2-10-2.8-3-3.4Z";
+function HeroScene({ hello, compact }) {
+	return /* @__PURE__ */ React.createElement("svg", {
+		className: "gl-scene",
+		viewBox: compact ? "30 16 500 150" : "20 -8 520 204",
+		preserveAspectRatio: "xMidYMax meet",
+		"aria-hidden": "true",
+		focusable: "false"
+	}, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", {
+		id: "gl-sky",
+		gradientUnits: "userSpaceOnUse",
+		x1: "0",
+		y1: "-10",
+		x2: "0",
+		y2: "200"
+	}, /* @__PURE__ */ React.createElement("stop", {
+		offset: "0",
+		stopColor: "#7FD0FF"
+	}), /* @__PURE__ */ React.createElement("stop", {
+		offset: "1",
+		stopColor: "#E3F6FF"
+	}))), /* @__PURE__ */ React.createElement("rect", {
+		x: "-700",
+		y: "-400",
+		width: "1960",
+		height: "900",
+		fill: "url(#gl-sky)"
+	}), /* @__PURE__ */ React.createElement("circle", {
+		className: "gl-sun",
+		cx: "74",
+		cy: "50",
+		r: "22",
+		fill: "#FFC93C"
+	}), /* @__PURE__ */ React.createElement("g", {
+		className: "gl-cloud gl-cloud-a",
+		fill: "#fff"
+	}, /* @__PURE__ */ React.createElement("rect", {
+		x: "170",
+		y: "34",
+		width: "72",
+		height: "20",
+		rx: "10"
+	}), /* @__PURE__ */ React.createElement("rect", {
+		x: "186",
+		y: "24",
+		width: "38",
+		height: "20",
+		rx: "10"
+	})), /* @__PURE__ */ React.createElement("g", {
+		className: "gl-cloud gl-cloud-b",
+		fill: "#fff",
+		opacity: ".85"
+	}, /* @__PURE__ */ React.createElement("rect", {
+		x: "330",
+		y: "60",
+		width: "58",
+		height: "16",
+		rx: "8"
+	}), /* @__PURE__ */ React.createElement("rect", {
+		x: "344",
+		y: "51",
+		width: "30",
+		height: "16",
+		rx: "8"
+	})), /* @__PURE__ */ React.createElement("path", {
+		d: "M-210 150-120 84-30 150Z",
+		fill: "#8FD96B"
+	}), /* @__PURE__ */ React.createElement("path", {
+		d: "M-10 150 80 78l62 72Z",
+		fill: "#8FD96B"
+	}), /* @__PURE__ */ React.createElement("path", {
+		d: "M380 150 458 70l92 80Z",
+		fill: "#74C95F"
+	}), /* @__PURE__ */ React.createElement("path", {
+		d: "M590 150 680 80l90 70Z",
+		fill: "#8FD96B"
+	}), /* @__PURE__ */ React.createElement("rect", {
+		x: "-700",
+		y: "168",
+		width: "1960",
+		height: "400",
+		fill: "#2BC0E0"
+	}), /* @__PURE__ */ React.createElement("path", {
+		className: "gl-wave",
+		d: wave,
+		fill: "none",
+		stroke: "#fff",
+		strokeWidth: "3",
+		strokeLinecap: "round",
+		opacity: ".7"
+	}), /* @__PURE__ */ React.createElement("path", {
+		d: "M-700 128H120V560H-700Z",
+		fill: "#C98D5A"
+	}), /* @__PURE__ */ React.createElement("path", {
+		d: "M380 128H1260V560H380Z",
+		fill: "#C98D5A"
+	}), /* @__PURE__ */ React.createElement("rect", {
+		x: "-700",
+		y: "122",
+		width: "820",
+		height: "10",
+		rx: "3",
+		fill: "#79D957"
+	}), /* @__PURE__ */ React.createElement("rect", {
+		x: "380",
+		y: "122",
+		width: "880",
+		height: "10",
+		rx: "3",
+		fill: "#79D957"
+	}), /* @__PURE__ */ React.createElement("rect", {
+		x: "-700",
+		y: "132",
+		width: "820",
+		height: "4",
+		fill: "#00000012"
+	}), /* @__PURE__ */ React.createElement("rect", {
+		x: "380",
+		y: "132",
+		width: "880",
+		height: "4",
+		fill: "#00000012"
+	}), /* @__PURE__ */ React.createElement("g", {
+		stroke: "#8FA6BD",
+		strokeWidth: "5",
+		strokeLinecap: "round",
+		fill: "none"
+	}, nodes.map((x, i) => /* @__PURE__ */ React.createElement("path", {
+		key: x,
+		className: "gl-draw",
+		style: { "--d": `${1.5 + i * .16}s` },
+		pathLength: "1",
+		d: `M${x} 128 ${apex.x} ${apex.y}`
+	}))), /* @__PURE__ */ React.createElement("g", {
+		stroke: "#8A5A2B",
+		strokeWidth: "10",
+		strokeLinecap: "round",
+		fill: "none"
+	}, nodes.slice(1).map((x, i) => /* @__PURE__ */ React.createElement("path", {
+		key: x,
+		className: "gl-draw",
+		style: { "--d": `${.3 + i * .25}s` },
+		pathLength: "1",
+		d: `M${nodes[i]} 128H${x}`
+	}))), /* @__PURE__ */ React.createElement("g", {
+		fill: "#fff",
+		stroke: "#5B351A",
+		strokeWidth: "3"
+	}, nodes.map((x, i) => /* @__PURE__ */ React.createElement("circle", {
+		key: x,
+		className: "gl-pop",
+		style: { "--d": `${.2 + i * .25}s` },
+		cx: x,
+		cy: "128",
+		r: "6.5"
+	}))), /* @__PURE__ */ React.createElement("circle", {
+		className: "gl-pop",
+		style: { "--d": "1.3s" },
+		cx: apex.x,
+		cy: apex.y,
+		r: "8",
+		fill: "#FFD54A",
+		stroke: "#5B351A",
+		strokeWidth: "3"
+	}), /* @__PURE__ */ React.createElement("g", { className: "gl-flag" }, /* @__PURE__ */ React.createElement("path", {
+		d: "M398 122V86",
+		stroke: "#5B351A",
+		strokeWidth: "3",
+		strokeLinecap: "round"
+	}), /* @__PURE__ */ React.createElement("path", {
+		d: "M398 86h20l-5 7 5 7h-20Z",
+		fill: "#FA4F28"
+	})), /* @__PURE__ */ React.createElement("g", { className: "gl-truck" }, /* @__PURE__ */ React.createElement("g", { transform: "translate(0 123)" }, /* @__PURE__ */ React.createElement("rect", {
+		x: "-22",
+		y: "-19",
+		width: "26",
+		height: "13",
+		rx: "3",
+		fill: "#FA4F28"
+	}), /* @__PURE__ */ React.createElement("rect", {
+		x: "4",
+		y: "-17",
+		width: "16",
+		height: "11",
+		rx: "3",
+		fill: "#6C47FF"
+	}), /* @__PURE__ */ React.createElement("rect", {
+		x: "11",
+		y: "-15",
+		width: "7",
+		height: "5",
+		rx: "1.5",
+		fill: "#fff"
+	}), /* @__PURE__ */ React.createElement("g", { fill: "#1E1B39" }, /* @__PURE__ */ React.createElement("circle", {
+		cx: "-13",
+		cy: "-4",
+		r: "4.5"
+	}), /* @__PURE__ */ React.createElement("circle", {
+		cx: "11",
+		cy: "-4",
+		r: "4.5"
+	})), /* @__PURE__ */ React.createElement("g", { fill: "#fff" }, /* @__PURE__ */ React.createElement("circle", {
+		cx: "-13",
+		cy: "-4",
+		r: "1.6"
+	}), /* @__PURE__ */ React.createElement("circle", {
+		cx: "11",
+		cy: "-4",
+		r: "1.6"
+	})))), /* @__PURE__ */ React.createElement("image", {
+		className: "gl-float gl-coin",
+		href: coinStar,
+		x: "26",
+		y: "64",
+		width: "34",
+		height: "32"
+	}), /* @__PURE__ */ React.createElement("image", {
+		className: "gl-float gl-gem",
+		href: purpleGem,
+		x: "296",
+		y: "14",
+		width: "28",
+		height: "28"
+	}), /* @__PURE__ */ React.createElement("g", {
+		fill: "#FFC93C",
+		stroke: "#E29A00",
+		strokeWidth: "1.2",
+		strokeLinejoin: "round"
+	}, [
+		0,
+		1,
+		2
+	].map((i) => /* @__PURE__ */ React.createElement("g", {
+		key: i,
+		transform: `translate(${462 + i * 28} ${i === 1 ? 17 : 26})`
+	}, /* @__PURE__ */ React.createElement("path", {
+		className: "gl-star",
+		style: { "--s": `${i * .12}s` },
+		d: star
+	})))), /* @__PURE__ */ React.createElement("image", {
+		className: "gl-robot",
+		href: robotWave,
+		x: "433",
+		y: "21",
+		width: "118",
+		height: "118"
+	}), /* @__PURE__ */ React.createElement("g", {
+		className: "gl-pop gl-bubble",
+		style: { "--d": "0.7s" }
+	}, /* @__PURE__ */ React.createElement("path", {
+		d: "M426 56 442 68 440 56Z",
+		fill: "#fff",
+		stroke: "#E4E3EE",
+		strokeWidth: "2",
+		strokeLinejoin: "round"
+	}), /* @__PURE__ */ React.createElement("rect", {
+		x: "384",
+		y: "34",
+		width: "56",
+		height: "24",
+		rx: "8",
+		fill: "#fff",
+		stroke: "#E4E3EE",
+		strokeWidth: "2"
+	}), /* @__PURE__ */ React.createElement("text", {
+		x: "412",
+		y: "51",
+		textAnchor: "middle",
+		fontSize: "12",
+		fontWeight: "800",
+		fill: "#1E1B39"
+	}, hello)));
+}
+function IntroModal({ t, level, levelIndex, total, levelHint, onStart, tour = false }) {
+	const first = level.difficulty === 1;
+	const text = levelText(level, t);
+	const { intro } = t;
+	const stepIcons = [
+		"road",
+		"support",
+		"play"
+	];
+	return /* @__PURE__ */ React.createElement(Modal, {
+		custom: true,
+		title: first ? intro.title : text.title,
+		className: `gl-intro ${first ? "gl-intro-full" : "gl-intro-level"}`
+	}, /* @__PURE__ */ React.createElement("div", { className: "gl-hero" }, /* @__PURE__ */ React.createElement(HeroScene, {
+		hello: intro.hello,
+		compact: !first
+	})), /* @__PURE__ */ React.createElement("div", { className: "gl-body" }, /* @__PURE__ */ React.createElement("div", { className: "gl-main" }, /* @__PURE__ */ React.createElement("span", { className: "gl-badge" }, /* @__PURE__ */ React.createElement(Icon, {
+		name: "star",
+		size: 13
+	}), first ? intro.badge : intro.levelBadge(levelIndex + 1, total)), /* @__PURE__ */ React.createElement("h2", null, first ? intro.title : text.title), /* @__PURE__ */ React.createElement("p", { className: "gl-lead" }, first ? intro.lead : text.subtitle), first ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("ul", { className: "gl-facts" }, intro.facts.map((fact, i) => /* @__PURE__ */ React.createElement("li", { key: fact.label }, i === 1 && /* @__PURE__ */ React.createElement("img", {
+		src: "data:image/webp;base64,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",
+		alt: "",
+		width: "22",
+		height: "21"
+	}), /* @__PURE__ */ React.createElement("b", null, fact.value), fact.label))), /* @__PURE__ */ React.createElement("p", { className: "gl-math" }, /* @__PURE__ */ React.createElement(Icon, {
+		name: "bulb",
+		size: 18
+	}), intro.mathLine), tour && /* @__PURE__ */ React.createElement("p", { className: "gl-math gl-tour-note" }, /* @__PURE__ */ React.createElement(Icon, {
+		name: "flag",
+		size: 18
+	}), intro.tourNote)) : levelHint && /* @__PURE__ */ React.createElement("div", { className: "gl-tip" }, /* @__PURE__ */ React.createElement(Icon, {
+		name: "bulb",
+		size: 22
+	}), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("b", null, intro.tip), /* @__PURE__ */ React.createElement("p", null, levelHint)))), /* @__PURE__ */ React.createElement("div", { className: "gl-side" }, first ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("h3", { className: "gl-how" }, intro.howTitle), /* @__PURE__ */ React.createElement("ol", { className: "gl-steps" }, intro.steps.map((step, i) => /* @__PURE__ */ React.createElement("li", {
+		key: step.title,
+		className: `gl-step gl-step-${i}`
+	}, /* @__PURE__ */ React.createElement("span", { className: "gl-step-icon" }, /* @__PURE__ */ React.createElement(Icon, {
+		name: stepIcons[i],
+		size: 24
+	})), /* @__PURE__ */ React.createElement("span", { className: "gl-step-copy" }, /* @__PURE__ */ React.createElement("b", null, step.title), /* @__PURE__ */ React.createElement("small", null, step.text)), /* @__PURE__ */ React.createElement("em", { "aria-hidden": "true" }, i + 1))))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "gl-tiles" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "gl-tile-icon" }, /* @__PURE__ */ React.createElement(Icon, {
+		name: "bridge",
+		size: 22
+	})), /* @__PURE__ */ React.createElement("small", null, intro.budget), /* @__PURE__ */ React.createElement("b", null, level.budget)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "gl-tile-icon gl-tile-star" }, /* @__PURE__ */ React.createElement("img", {
+		src: coinStar,
+		alt: "",
+		width: "28",
+		height: "27"
+	})), /* @__PURE__ */ React.createElement("small", null, intro.starGoal), /* @__PURE__ */ React.createElement("b", null, "≤ ", level.parBudget))), /* @__PURE__ */ React.createElement("ul", { className: "gl-tools" }, ["road", "support"].map((type) => /* @__PURE__ */ React.createElement("li", { key: type }, /* @__PURE__ */ React.createElement(Icon, {
+		name: type,
+		size: 20
+	}), /* @__PURE__ */ React.createElement("b", null, t[type]), /* @__PURE__ */ React.createElement("small", null, t.toolDescriptions[type]))))))), /* @__PURE__ */ React.createElement("div", { className: "gl-footer" }, /* @__PURE__ */ React.createElement("button", {
+		type: "button",
+		className: "gl-cta",
+		onClick: onStart
+	}, t.start, /* @__PURE__ */ React.createElement(Icon, {
+		name: "arrow",
+		size: 20
+	}))));
+}
+// src/games/bridge-master/components/SaveStatus.jsx
+var rank = {
+	saved: 0,
+	idle: 1,
+	saving: 2,
+	queued: 3,
+	error: 4
+};
+var icons = {
+	saved: "check",
+	idle: "bulb",
+	saving: "reset",
+	queued: "pause",
+	error: "close"
+};
+function operations(attempt, saveState) {
+	const ops = saveState?.attempts?.[attempt.attemptId];
+	const start = ops?.start?.status ?? "idle";
+	if (attempt.outcome === null) return {
+		start,
+		end: null
+	};
+	return {
+		start,
+		end: start === "error" ? "error" : ops?.end?.status ?? "idle"
+	};
+}
+function summarize(attempts, saveState) {
+	let worst = null;
+	const failed = [], unsaved = [];
+	for (const attempt of attempts) {
+		const { start, end } = operations(attempt, saveState);
+		for (const [op, status] of [["start", start], ["result", end]]) {
+			if (!status) continue;
+			if (!worst || rank[status] > rank[worst.status] || rank[status] === rank[worst.status] && worst.attempt !== attempt) worst = {
+				op,
+				status,
+				attempt
+			};
+		}
+		if (start === "error" || end === "error") failed.push(attempt.attemptId);
+		if (start !== "saved" || end && end !== "saved") unsaved.push(attempt);
+	}
+	return {
+		worst,
+		failed,
+		unsaved
+	};
+}
+function RetryButton({ t, ids, onRetrySave, className = "" }) {
+	return /* @__PURE__ */ React.createElement("button", {
+		type: "button",
+		className: `save-retry ${className}`,
+		onClick: () => ids.forEach((id) => onRetrySave?.(id))
+	}, /* @__PURE__ */ React.createElement(Icon, {
+		name: "reset",
+		size: 14
+	}), t.save.retry);
+}
+function SaveChip({ attempts, saveState, t, onRetrySave, onOpen }) {
+	const { worst, failed } = summarize(attempts, saveState);
+	if (!worst) return null;
+	const latest = attempts.at(-1);
+	if (worst.status === "saved" && latest?.outcome === null) return null;
+	const text = `${worst.op === "start" ? t.save.start : t.save.result}: ${t.save[worst.status]}`;
+	return /* @__PURE__ */ React.createElement("div", {
+		className: "save-chip-group",
+		role: "status",
+		"aria-label": t.save.label
+	}, /* @__PURE__ */ React.createElement("button", {
+		type: "button",
+		className: `save-chip is-${worst.status}`,
+		onClick: onOpen,
+		title: text
+	}, /* @__PURE__ */ React.createElement(Icon, {
+		name: icons[worst.status],
+		size: 15,
+		className: `save-icon is-${worst.status}`
+	}), /* @__PURE__ */ React.createElement("span", null, text)), failed.length > 0 && /* @__PURE__ */ React.createElement(RetryButton, {
+		t,
+		ids: failed,
+		onRetrySave
+	}));
+}
+function SaveLine({ attempt, saveState, t, onRetrySave }) {
+	if (!attempt) return null;
+	const { start, end } = operations(attempt, saveState);
+	const status = end ?? start;
+	const failed = start === "error" || end === "error";
+	return /* @__PURE__ */ React.createElement("div", {
+		className: `save-line is-${status}`,
+		role: "status"
+	}, /* @__PURE__ */ React.createElement(Icon, {
+		name: icons[status],
+		size: 15,
+		className: `save-icon is-${status}`
+	}), /* @__PURE__ */ React.createElement("span", null, start === "error" ? `${t.save.start}: ${t.save.error}` : `${t.save.result}: ${t.save[status]}`), failed && /* @__PURE__ */ React.createElement(RetryButton, {
+		t,
+		ids: [attempt.attemptId],
+		onRetrySave
+	}));
+}
+function SavePanel({ attempts, saveState, levels, t, onRetrySave, onClose }) {
+	const rows = [...attempts].reverse().slice(0, 12);
+	return /* @__PURE__ */ React.createElement(Modal, {
+		title: t.save.panelTitle,
+		eyebrow: t.save.label,
+		className: "save-modal"
+	}, /* @__PURE__ */ React.createElement("p", null, t.save.panelBody), /* @__PURE__ */ React.createElement("ul", { className: "save-list" }, rows.map((attempt) => {
+		const { start, end } = operations(attempt, saveState);
+		const level = levels.find((l) => l.id === attempt.levelId);
+		return /* @__PURE__ */ React.createElement("li", { key: attempt.attemptId }, /* @__PURE__ */ React.createElement("b", null, t.save.attemptRow(attempt.number, level ? levelText(level, t).title : attempt.levelId)), /* @__PURE__ */ React.createElement("small", null, t.save.outcomes[attempt.outcome ?? "active"]), /* @__PURE__ */ React.createElement("span", { className: `save-state is-${start}` }, /* @__PURE__ */ React.createElement(Icon, {
+			name: icons[start],
+			size: 13
+		}), " ", t.save.start, ": ", t.save[start]), end && /* @__PURE__ */ React.createElement("span", { className: `save-state is-${end}` }, /* @__PURE__ */ React.createElement(Icon, {
+			name: icons[end],
+			size: 13
+		}), " ", t.save.result, ": ", t.save[end]), (start === "error" || end === "error") && /* @__PURE__ */ React.createElement(RetryButton, {
+			t,
+			ids: [attempt.attemptId],
+			onRetrySave
+		}));
+	})), /* @__PURE__ */ React.createElement("button", {
+		type: "button",
+		className: "secondary",
+		onClick: onClose
+	}, t.close));
+}
 // src/games/bridge-master/BridgeMaster.jsx
 var defaultConfig = {};
-function BridgeMaster({ classLevel = 5, lang = "uz", config = defaultConfig, onFinished, onExit }) {
+function starsFromProgress(progress, scoreVersion = 1) {
+	const stars = {};
+	for (const id of progress?.completedLevelIds ?? []) stars[id] = 1;
+	for (const scope of progress?.scopes ?? []) {
+		if (scope.modeId !== "default" || scope.scoreVersion !== scoreVersion || !scope.levelId) continue;
+		const best = scope.bestResult?.metrics?.stars;
+		if (Number.isInteger(best) && best > 0) stars[scope.levelId] = Math.min(3, best);
+	}
+	return stars;
+}
+function BridgeMaster({ classLevel = 5, lang = "uz", config = defaultConfig, progress, saveState, onFinished, onExit, onAttemptStart, onAttemptEnd, onRetrySave }) {
 	const levels$1 = config.levels ?? levels;
 	if (!Array.isArray(levels$1) || !levels$1.length || levels$1.some((l) => !validateLevel(l).valid)) return /* @__PURE__ */ React.createElement("div", {
 		role: "alert",
 		className: "modal"
-	}, uz.configError);
+	}, getDictionary(lang, config.translations).configError);
 	return /* @__PURE__ */ React.createElement(Game, {
 		classLevel: Number.isInteger(classLevel) && classLevel >= 1 && classLevel <= 11 ? classLevel : 5,
-		lang,
+		lang: normalizeLang(lang),
 		config,
 		levels: levels$1,
+		progress,
+		saveState,
 		onFinished,
-		onExit
+		onExit,
+		onAttemptStart,
+		onAttemptEnd,
+		onRetrySave
 	});
 }
-function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
+function Game({ classLevel, lang, config, levels, progress, saveState, onFinished, onExit, onAttemptStart, onAttemptEnd, onRetrySave }) {
 	const hintId = useId();
-	const t = {
-		...uz,
-		...config.translations?.[lang]
-	}, [showLevels, setShowLevels] = useState(false), [exited, setExited] = useState(false), [scores, setScores] = useState({});
-	const { sound, toggleSound, reducedMotion, beep } = usePreferences();
+	const t = useMemo(() => getDictionary(lang, config.translations), [lang, config.translations]);
+	const [showLevels, setShowLevels] = useState(false), [showSave, setShowSave] = useState(false), [exited, setExited] = useState(false), [localScores, setScores] = useState({});
+	const { sound, toggleSound, reducedMotion, play } = usePreferences();
 	const { state, dispatch: rawDispatch, derived } = useBridgeGame({
 		level: levels[0],
 		classLevel
 	});
 	const dispatch = (action) => {
-		beep();
+		play(action.type === "UNDO" || action.type === "REMOVE_EDGE" || action.type === "RESET_BRIDGE" ? "undo" : action.type === "SELECT_NODE" || action.type === "SELECT_EDGE" ? "select" : "click");
 		rawDispatch(action);
 	};
 	const adapter = useLmsEvents(state, {
@@ -38125,6 +42330,10 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
 		onExit,
 		onEvent: config.onEvent,
 		edgeEvents: config.edgeEvents
+	});
+	const reporting = useAttemptReporting(state, {
+		onAttemptStart,
+		onAttemptEnd
 	});
 	const simulation = useSimulation({
 		run: state.run,
@@ -38136,6 +42345,42 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
 			completedAt: (/* @__PURE__ */ new Date()).toISOString()
 		})
 	});
+	const heard = useRef({
+		edges: 0,
+		message: null,
+		phase: state.phase,
+		countdown: 0,
+		broken: false
+	});
+	useEffect(() => {
+		const before = heard.current;
+		if (state.playerEdges.length > before.edges) play("place");
+		if (state.message && state.message !== before.message) play("error");
+		if (state.phase === "success" && before.phase !== "success") play("success");
+		if (simulation.countdown > 0 && simulation.countdown !== before.countdown) play("tick");
+		if (before.countdown > 0 && simulation.countdown === 0 && state.phase === "testing") {
+			play("go");
+			setTimeout(() => play("honk"), 120);
+		}
+		if (simulation.broken && !before.broken) {
+			play("crash");
+			setTimeout(() => play("splash"), 700);
+		}
+		heard.current = {
+			edges: state.playerEdges.length,
+			message: state.message,
+			phase: state.phase,
+			countdown: simulation.countdown,
+			broken: simulation.broken
+		};
+	}, [
+		state.playerEdges.length,
+		state.message,
+		state.phase,
+		simulation.countdown,
+		simulation.broken,
+		play
+	]);
 	const levelIndex = levels.findIndex((l) => l.id === state.level.id);
 	const progressStart = Math.floor(levelIndex / 5) * 5;
 	useEffect(() => {
@@ -38148,7 +42393,13 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
 		state.level.id,
 		state.result
 	]);
+	const scores = useMemo(() => {
+		const merged = starsFromProgress(progress);
+		for (const [id, stars] of Object.entries(localScores)) merged[id] = Math.max(merged[id] ?? 0, stars);
+		return merged;
+	}, [progress, localScores]);
 	const loadLevel = (level) => {
+		reporting.abortActive("level_change");
 		rawDispatch({
 			type: "LOAD_LEVEL",
 			level,
@@ -38162,8 +42413,17 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
 		rawDispatch({ type: "PAUSE" });
 		setShowLevels(true);
 	};
+	const openSave = () => {
+		rawDispatch({ type: "PAUSE" });
+		setShowSave(true);
+	};
+	const closeSave = () => {
+		setShowSave(false);
+		rawDispatch({ type: "RESUME" });
+	};
 	const exitGame = () => {
 		rawDispatch({ type: "PAUSE" });
+		reporting.abortActive("player_exit");
 		const metadata = {
 			levelId: state.level.id,
 			sessionId: state.sessionId,
@@ -38174,12 +42434,17 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
 		adapter.exit(metadata);
 		setExited(true);
 	};
-	const overlayOpen = showLevels || exited || [
+	const overlayOpen = showLevels || showSave || exited || [
 		"intro",
 		"paused",
 		"success",
 		"failed"
 	].includes(state.phase);
+	const shell = useRef(null);
+	const appRoot = useRef(null);
+	useEffect(() => {
+		shell.current?.toggleAttribute("inert", overlayOpen);
+	}, [overlayOpen]);
 	const input = useGameInput({
 		state,
 		dispatch
@@ -38187,71 +42452,33 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
 	const tutorial = state.level.difficulty === 1 && state.phase === "building";
 	const missingRoadIndex = state.level.roadNodeIds.findIndex((id, i, ids) => i < ids.length - 1 && !derived.edges.some((edge) => edge.type === "road" && edge.id === getEdgeKey(id, ids[i + 1])));
 	const tutorialTestReady = tutorial && missingRoadIndex === -1;
+	const lesson = useMemo(() => lessonFor(state.level), [state.level]);
+	const tour = useOnboarding({
+		lesson,
+		enabled: config.onboarding !== false && !scores[state.level.id],
+		seen: config.onboardingSeen,
+		ctx: {
+			state,
+			roadReady: missingRoadIndex === -1
+		},
+		onFinish: config.onOnboardingDone
+	});
+	const tourVisible = tour.running && state.phase === "building" && !overlayOpen;
 	const tutorialNodeId = tutorial && missingRoadIndex >= 0 ? state.level.roadNodeIds[missingRoadIndex + (state.selectedNodeId === state.level.roadNodeIds[missingRoadIndex] ? 1 : 0)] : null;
+	const materialLeft = state.level.budget - derived.budgetUsed;
 	const levelHint = t.levelHints?.[state.level.id];
+	const names = levelText(state.level, t);
 	const hint = state.message ? [t.messages[state.message], state.message === "budget" && levelHint].filter(Boolean).join(" ") : state.phase === "testing" ? t.testing : state.selectedNodeId ? t.chooseNext : state.selectedEdgeId ? t.selectedEdge : state.level.difficulty > 1 ? levelHint || t.hintSupport : state.playerEdges.length >= 4 ? t.hintTest : state.playerEdges.length ? t.hintNext : t.hintFirst;
 	return /* @__PURE__ */ React.createElement("main", {
-		className: "bridge-app",
+		ref: appRoot,
+		className: `bridge-app ${reporting.enabled ? "is-gamelab" : ""}`,
 		lang,
 		tabIndex: -1,
 		...input
 	}, /* @__PURE__ */ React.createElement("div", {
 		className: "game-shell",
-		inert: overlayOpen
-	}, /* @__PURE__ */ React.createElement("header", { className: "site-header" }, /* @__PURE__ */ React.createElement("a", {
-		className: "brand",
-		href: "./"
-	}, /* @__PURE__ */ React.createElement("span", { className: "brand-icon" }, /* @__PURE__ */ React.createElement(Icon, {
-		name: "bridge",
-		size: 29
-	})), /* @__PURE__ */ React.createElement("span", null, t.brand, /* @__PURE__ */ React.createElement("small", null, t.academy))), /* @__PURE__ */ React.createElement("div", { className: "edition" }, /* @__PURE__ */ React.createElement("span", null), t.workshop), /* @__PURE__ */ React.createElement("div", { className: "header-actions" }, /* @__PURE__ */ React.createElement("button", {
-		className: "icon-button",
-		"aria-label": sound ? t.soundOff : t.soundOn,
-		onClick: toggleSound
-	}, /* @__PURE__ */ React.createElement(Icon, { name: sound ? "sound" : "muted" })), /* @__PURE__ */ React.createElement("button", {
-		className: "icon-button",
-		"aria-label": t.pause,
-		disabled: !["building", "testing"].includes(state.phase),
-		onClick: () => dispatch({ type: "PAUSE" })
-	}, /* @__PURE__ */ React.createElement(Icon, { name: "pause" })), /* @__PURE__ */ React.createElement("button", {
-		className: "header-levels",
-		onClick: selectLevels
-	}, /* @__PURE__ */ React.createElement(Icon, { name: "grid" }), t.levels))), /* @__PURE__ */ React.createElement("div", { className: "game-content" }, /* @__PURE__ */ React.createElement("section", {
-		className: "game-card",
-		"aria-label": t.brand
-	}, /* @__PURE__ */ React.createElement("aside", {
-		className: "control-panel",
-		"aria-label": t.workshop
-	}, /* @__PURE__ */ React.createElement("div", { className: "game-header" }, /* @__PURE__ */ React.createElement("div", { className: "level-title" }, /* @__PURE__ */ React.createElement("span", { className: "level-number" }, String(levelIndex + 1).padStart(2, "0")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "eyebrow" }, t.level, " ", levelIndex + 1, " / ", levels.length), /* @__PURE__ */ React.createElement("h1", null, state.level.title))), /* @__PURE__ */ React.createElement("p", { className: "level-description" }, state.level.subtitle), /* @__PURE__ */ React.createElement("div", {
-		className: "level-progress",
-		"aria-label": t.levelProgress
-	}, levels.slice(progressStart, progressStart + 5).map((level, offset) => /* @__PURE__ */ React.createElement("span", {
-		key: level.id,
-		className: `${progressStart + offset === levelIndex ? "current" : ""} ${scores[level.id] ? "complete" : ""}`,
-		"aria-current": progressStart + offset === levelIndex ? "step" : void 0,
-		"aria-label": t.levelLabel(progressStart + offset + 1, level.title)
-	}, scores[level.id] ? /* @__PURE__ */ React.createElement(Icon, {
-		name: "check",
-		size: 12
-	}) : progressStart + offset + 1))), /* @__PURE__ */ React.createElement("div", {
-		className: "budget",
-		"aria-label": t.materialLabel
-	}, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement(Icon, {
-		name: "bridge",
-		size: 16
-	}), t.material), /* @__PURE__ */ React.createElement("strong", null, derived.budgetUsed, " / ", state.level.budget)), /* @__PURE__ */ React.createElement("div", { className: "budget-track" }, /* @__PURE__ */ React.createElement("span", { style: { width: `${derived.budgetUsed / state.level.budget * 100}%` } })), /* @__PURE__ */ React.createElement("div", { className: "budget-footnote" }, /* @__PURE__ */ React.createElement("span", null, t.remaining), /* @__PURE__ */ React.createElement("b", null, state.level.budget - derived.budgetUsed)))), /* @__PURE__ */ React.createElement("div", { className: "construction-note" }, /* @__PURE__ */ React.createElement("span", { className: "section-label" }, t.yourGoal), /* @__PURE__ */ React.createElement("p", null, t.goalBody), /* @__PURE__ */ React.createElement("span", { className: "goal-target" }, /* @__PURE__ */ React.createElement(Icon, {
-		name: "star",
-		size: 16
-	}), t.target, ": ≤ ", state.level.parBudget)), /* @__PURE__ */ React.createElement(GameToolbar, {
-		state,
-		dispatch,
-		t,
-		tutorialTestReady,
-		hintId
-	}), /* @__PURE__ */ React.createElement("p", { className: "keyboard-note" }, t.keyboardHint)), /* @__PURE__ */ React.createElement("div", { className: "scene-panel" }, /* @__PURE__ */ React.createElement("div", { className: "scene-heading" }, /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement(Icon, {
-		name: "flag",
-		size: 16
-	}), t.sceneTitle), /* @__PURE__ */ React.createElement("span", null, t.sceneDetail)), /* @__PURE__ */ React.createElement(BridgeScene, {
+		ref: shell
+	}, /* @__PURE__ */ React.createElement(BridgeScene, {
 		state,
 		edges: derived.edges,
 		dispatch,
@@ -38262,25 +42489,94 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
 		countdown: simulation.countdown,
 		tutorialNodeId,
 		hintId,
-		reducedMotion
-	}), /* @__PURE__ */ React.createElement("div", {
-		className: `hint-bar ${state.message ? "warning" : ""}`,
-		role: "status",
-		id: hintId
-	}, /* @__PURE__ */ React.createElement("span", { className: "hint-icon" }, /* @__PURE__ */ React.createElement(Icon, {
-		name: "bulb",
-		size: 18
-	})), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("b", { className: "hint-label" }, state.message ? t.buildFeedback : t.nextStep), hint), /* @__PURE__ */ React.createElement("span", { className: "hint-counter" }, t.target, ": ≤ ", state.level.parBudget)))))), !showLevels && !exited && state.phase === "intro" && /* @__PURE__ */ React.createElement(Modal, {
-		title: state.level.difficulty === 1 ? t.introTitle : state.level.title,
-		className: "intro-modal",
-		eyebrow: t.adventureStart
-	}, /* @__PURE__ */ React.createElement("span", { className: "modal-symbol" }, /* @__PURE__ */ React.createElement(Icon, {
-		name: "bridge",
-		size: 42
-	})), /* @__PURE__ */ React.createElement("p", null, state.level.difficulty === 1 ? t.introBody : state.level.subtitle), levelHint && /* @__PURE__ */ React.createElement("p", null, levelHint), /* @__PURE__ */ React.createElement("ol", { className: "intro-steps" }, t.introSteps.map((step, i) => /* @__PURE__ */ React.createElement("li", { key: step }, /* @__PURE__ */ React.createElement("b", null, i + 1), step))), /* @__PURE__ */ React.createElement("button", {
-		className: "primary",
-		onClick: () => dispatch({ type: "START_BUILDING" })
-	}, t.start, /* @__PURE__ */ React.createElement(Icon, { name: "arrow" }))), !showLevels && !exited && state.phase === "paused" && /* @__PURE__ */ React.createElement(Modal, {
+		reducedMotion,
+		hudTop: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", {
+			className: "hud-left",
+			"data-tour": "level"
+		}, /* @__PURE__ */ React.createElement("button", {
+			type: "button",
+			className: "hud-btn hud-levels",
+			onClick: selectLevels
+		}, /* @__PURE__ */ React.createElement(Icon, { name: "grid" }), /* @__PURE__ */ React.createElement("span", null, t.levels)), /* @__PURE__ */ React.createElement("div", { className: "level-card" }, /* @__PURE__ */ React.createElement("span", { className: "level-number" }, String(levelIndex + 1).padStart(2, "0")), /* @__PURE__ */ React.createElement("div", { className: "level-copy" }, /* @__PURE__ */ React.createElement("span", { className: "eyebrow" }, t.level, " ", levelIndex + 1, " / ", levels.length), /* @__PURE__ */ React.createElement("h1", null, names.title)), /* @__PURE__ */ React.createElement("div", {
+			className: "level-progress",
+			"aria-label": t.levelProgress
+		}, levels.slice(progressStart, progressStart + 5).map((level, offset) => /* @__PURE__ */ React.createElement("span", {
+			key: level.id,
+			className: `${progressStart + offset === levelIndex ? "current" : ""} ${scores[level.id] ? "complete" : ""}`,
+			"aria-current": progressStart + offset === levelIndex ? "step" : void 0,
+			"aria-label": t.levelLabel(progressStart + offset + 1, levelText(level, t).title)
+		}, scores[level.id] ? /* @__PURE__ */ React.createElement(Icon, {
+			name: "star",
+			size: 13
+		}) : progressStart + offset + 1))))), /* @__PURE__ */ React.createElement("div", {
+			className: "hud-center",
+			"data-tour": "budget"
+		}, /* @__PURE__ */ React.createElement("div", {
+			className: `budget ${materialLeft <= state.level.budget * .15 ? "is-low" : ""}`,
+			"aria-label": t.materialLabel
+		}, /* @__PURE__ */ React.createElement("div", { className: "budget-main" }, /* @__PURE__ */ React.createElement("span", { className: "budget-label" }, /* @__PURE__ */ React.createElement(Icon, {
+			name: "bridge",
+			size: 18
+		}), t.material), /* @__PURE__ */ React.createElement("strong", null, derived.budgetUsed, " / ", state.level.budget)), /* @__PURE__ */ React.createElement("div", { className: "budget-track" }, /* @__PURE__ */ React.createElement("span", { style: { width: `${derived.budgetUsed / state.level.budget * 100}%` } })), /* @__PURE__ */ React.createElement("div", { className: "budget-footnote" }, /* @__PURE__ */ React.createElement("span", null, t.remaining), /* @__PURE__ */ React.createElement("b", null, materialLeft))), /* @__PURE__ */ React.createElement("span", { className: "goal-target" }, /* @__PURE__ */ React.createElement(Icon, {
+			name: "star",
+			size: 15
+		}), t.target, ": ≤ ", state.level.parBudget)), /* @__PURE__ */ React.createElement("div", {
+			className: "hud-right",
+			"data-tour": "controls"
+		}, reporting.enabled && /* @__PURE__ */ React.createElement(SaveChip, {
+			attempts: reporting.attempts,
+			saveState,
+			t,
+			onRetrySave,
+			onOpen: openSave
+		}), /* @__PURE__ */ React.createElement("button", {
+			type: "button",
+			className: "hud-btn hud-round",
+			"aria-label": sound ? t.soundOff : t.soundOn,
+			onClick: toggleSound
+		}, /* @__PURE__ */ React.createElement(Icon, { name: sound ? "sound" : "muted" })), /* @__PURE__ */ React.createElement("button", {
+			type: "button",
+			className: "hud-btn hud-round",
+			"aria-label": t.pause,
+			disabled: !["building", "testing"].includes(state.phase),
+			onClick: () => dispatch({ type: "PAUSE" })
+		}, /* @__PURE__ */ React.createElement(Icon, { name: "pause" })))),
+		hudBottom: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", {
+			className: `hint-bar ${state.message ? "warning" : ""}`,
+			role: "status",
+			id: hintId
+		}, /* @__PURE__ */ React.createElement("img", {
+			className: "hint-avatar",
+			src: robotWave,
+			alt: "",
+			width: "52",
+			height: "52"
+		}), /* @__PURE__ */ React.createElement("span", { className: "hint-copy" }, /* @__PURE__ */ React.createElement("b", { className: "hint-label" }, state.message ? t.buildFeedback : t.nextStep), /* @__PURE__ */ React.createElement("span", { className: "hint-text" }, hint))), /* @__PURE__ */ React.createElement(GameToolbar, {
+			state,
+			dispatch,
+			t,
+			tutorialTestReady,
+			hintId
+		}), /* @__PURE__ */ React.createElement("p", { className: "keyboard-note" }, t.keyboardHint))
+	})), !showLevels && !showSave && !exited && state.phase === "intro" && /* @__PURE__ */ React.createElement(IntroModal, {
+		t,
+		level: state.level,
+		levelIndex,
+		total: levels.length,
+		levelHint,
+		tour: tour.running && state.level.difficulty === 1,
+		onStart: () => dispatch({ type: "START_BUILDING" })
+	}), tourVisible && /* @__PURE__ */ React.createElement(Onboarding, {
+		rootRef: appRoot,
+		lessonId: lesson.id,
+		fresh: lesson.fresh,
+		step: tour.step,
+		index: tour.index,
+		total: tour.total,
+		t,
+		onNext: tour.next,
+		onSkip: tour.skip
+	}), !showLevels && !showSave && !exited && state.phase === "paused" && /* @__PURE__ */ React.createElement(Modal, {
 		title: t.paused,
 		eyebrow: t.pause,
 		className: "pause-modal"
@@ -38296,10 +42592,16 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
 	}, t.levels), /* @__PURE__ */ React.createElement("button", {
 		className: "secondary",
 		onClick: exitGame
-	}, t.exit))), !showLevels && !exited && ["success", "failed"].includes(state.phase) && /* @__PURE__ */ React.createElement(ResultModal, {
+	}, t.exit))), !showLevels && !showSave && !exited && ["success", "failed"].includes(state.phase) && /* @__PURE__ */ React.createElement(ResultModal, {
 		result: state.result,
 		reasonCode: state.run?.outcome.reasonCode,
 		levelHint,
+		saveLine: reporting.enabled && /* @__PURE__ */ React.createElement(SaveLine, {
+			attempt: reporting.attempts.at(-1),
+			saveState,
+			t,
+			onRetrySave
+		}),
 		t,
 		onRetry: () => dispatch({ type: "RETRY" }),
 		onReplay: () => loadLevel(state.level),
@@ -38316,6 +42618,13 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
 			setShowLevels(false);
 			if (state.phase === "paused") rawDispatch({ type: "RESUME" });
 		}
+	}), showSave && !exited && /* @__PURE__ */ React.createElement(SavePanel, {
+		attempts: reporting.attempts,
+		saveState,
+		levels,
+		t,
+		onRetrySave,
+		onClose: closeSave
 	}), exited && /* @__PURE__ */ React.createElement(Modal, {
 		title: t.exited,
 		eyebrow: t.brand
@@ -38325,7 +42634,9 @@ function Game({ classLevel, lang, config, levels, onFinished, onExit }) {
 	}, t.back)));
 }
 // src/games/bridge-master/styles/bridge-master.css?inline
-var bridge_master_default = ":root {\n  font-family: \"Segoe UI\", system-ui, sans-serif;\n  color: #243e36;\n  background: #f3f2ec;\n  font-synthesis: none;\n  --ink: #243e36;\n  --green: #205c47;\n  --muted: #6b7871;\n  --line: #e2e6dc;\n  --cream: #fffef9;\n}\n* { box-sizing: border-box; }\nhtml, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }\nbutton, a, [role=\"button\"] { -webkit-tap-highlight-color: transparent; }\nbutton { font: inherit; cursor: pointer; touch-action: manipulation; border: 0; }\nbutton:disabled { cursor: default; opacity: .38; }\nbutton:focus-visible, a:focus-visible, [role=\"button\"]:focus-visible { outline: 3px solid #b67d20; outline-offset: 3px; }\na { color: inherit; text-decoration: none; }\nbutton { transition: background .16s, box-shadow .16s, transform .16s; }\n.bridge-app { width: 100%; height: 100dvh; overflow: hidden; }\n.game-shell { height: 100%; display: grid; grid-template-rows: 76px minmax(0, 1fr); padding-top: env(safe-area-inset-top); }\n.site-header { display: flex; align-items: center; gap: 24px; padding: 0 28px; background: #fffef9; border-bottom: 1px solid var(--line); }\n.brand { display: flex; align-items: center; gap: 11px; font-size: 21px; font-weight: 750; letter-spacing: -.8px; flex-shrink: 0; }\n.brand-icon { display: grid; place-items: center; width: 44px; height: 44px; color: #f8d387; background: var(--green); border-radius: 14px 14px 14px 5px; }\n.brand small { display: block; font-size: 8px; font-weight: 650; letter-spacing: 2.6px; margin-top: 4px; color: #737e6f; }\n.edition { margin-left: 22px; border-left: 1px solid var(--line); padding-left: 24px; display: flex; align-items: center; gap: 9px; color: #68786c; font-size: 12px; }\n.edition > span { width: 6px; height: 6px; background: #b28b4d; border-radius: 50%; }\n.header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }\n.icon-button { min-width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 10px; background: transparent; color: #52695d; }\n.icon-button:not(:disabled):hover { background: #eaf0e5; }\n.header-levels { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 0 16px; border: 1px solid #dce3d6; border-radius: 11px; background: #f4f6ee; color: #365743; font-size: 12px; font-weight: 650; margin-left: 8px; }\n.header-levels:hover { background: #e6edde; }\n.game-content { min-height: 0; padding: 20px 24px 24px; }\n.game-card { height: 100%; display: grid; grid-template-columns: 296px minmax(0, 1fr); gap: 20px; }\n.control-panel { display: flex; flex-direction: column; min-height: 0; padding: 24px; border: 1px solid var(--line); border-radius: 20px; background: var(--cream); box-shadow: 0 5px 18px #233d3304; }\n.game-header { display: flex; flex-direction: column; }\n.level-title { display: flex; align-items: center; gap: 12px; min-width: 0; }\n.level-number { flex-shrink: 0; width: 42px; height: 48px; display: grid; place-items: center; border-radius: 12px; background: #e8efdf; color: #416344; font-size: 21px; font-weight: 750; }\n.eyebrow, .section-label { font-size: 9px; font-weight: 750; letter-spacing: 1.6px; color: #707e6d; }\n.level-title h1 { font-size: 20px; line-height: 1.15; letter-spacing: -.65px; margin: 5px 0 0; }\n.level-description { font-size: 12px; line-height: 1.55; color: var(--muted); margin: 16px 0; }\n.level-progress { display: flex; gap: 6px; margin: 0 0 22px; }\n.level-progress > span { flex: 1; height: 23px; display: flex; align-items: center; justify-content: center; border-radius: 5px; background: #f0f1e9; font-size: 10px; font-weight: 700; color: #899080; }\n.level-progress .current { color: #fff9e8; background: #2c634c; }\n.level-progress .complete:not(.current) { color: #296548; background: #dfead9; }\n.budget { padding: 16px; border-radius: 13px; background: #f3f4eb; }\n.budget > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; font-size: 12px; color: #63725d; }\n.budget > div:first-child > span { display: flex; align-items: center; gap: 7px; }\n.budget strong { color: #294c39; font-size: 16px; font-weight: 750; font-variant-numeric: tabular-nums; }\n.budget-track { height: 7px; background: #e0e6d7; border-radius: 10px; overflow: hidden; }\n.budget-track span { display: block; height: 100%; border-radius: inherit; background: #759c5a; transition: width .2s; }\n.budget-footnote { display: flex; justify-content: space-between; margin-top: 9px; color: #75816e; font-size: 10px; }\n.budget-footnote b { color: #516743; }\n.construction-note { margin: 24px 0; padding-bottom: 22px; border-bottom: 1px solid var(--line); }\n.construction-note p { font-size: 12px; line-height: 1.7; margin: 9px 0 12px; color: #667562; }\n.goal-target { display: flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 600; color: #8c692f; }\n.toolbar { display: flex; flex-direction: column; gap: 14px; flex: 1; min-height: 0; }\n.tool-materials { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.material-button { min-width: 0; display: flex; align-items: flex-start; flex-direction: column; gap: 11px; position: relative; padding: 14px 12px; border: 1px solid #e3e7dd; border-radius: 12px; background: #fafbf5; color: #72806b; text-align: left; }\n.material-button > svg:first-child { width: 24px; height: 24px; }\n.material-button > span { font-size: 13px; font-weight: 700; }\n.material-button small { display: block; font-size: 9px; font-weight: 400; line-height: 1.4; margin-top: 4px; color: #7c8575; }\n.material-button.active { background: #eaf1e2; border-color: #658c53; color: #315739; box-shadow: 0 0 0 1px #658c5330; }\n.material-button.active small { color: #607857; }\n.material-check { position: absolute; top: 13px; right: 11px; }\n.edit-tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }\n.edit-tools .icon-button { height: 52px; min-width: 0; flex-direction: column; gap: 5px; background: #f5f6ef; }\n.edit-tools span { font-size: 10px; }\n.primary { display: flex; justify-content: center; align-items: center; gap: 10px; min-height: 46px; padding: 12px 18px; border-radius: 12px; background: #245d45; color: #fffbed; box-shadow: 0 3px 0 #143c2b; font-size: 13px; font-weight: 700; }\n.primary:hover:not(:disabled) { background: #347354; transform: translateY(-1px); }\n.primary:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #143c2b; }\n.test-button { width: 100%; margin-top: auto; min-height: 50px; }\n.test-button.tutorial-ready { outline: 2px solid #d2ab57; outline-offset: 4px; }\n.keycap { border: 1px solid #ffffff30; border-radius: 4px; font-size: 11px; padding: 1px 4px; margin-left: auto; color: #d5e4cc; }\n.keyboard-note { text-align: center; color: #929a89; font-size: 9px; margin: 17px 0 0; }\n.scene-panel { display: grid; grid-template-rows: 46px minmax(0, 1fr) minmax(64px, auto); min-width: 0; min-height: 0; border: 1px solid #dce3d6; border-radius: 20px; overflow: hidden; background: var(--cream); }\n.scene-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 20px; font-size: 11px; border-bottom: 1px solid var(--line); }\n.scene-heading > span:first-child { display: flex; align-items: center; gap: 8px; font-weight: 650; color: #546b56; }\n.scene-heading > span:last-child { color: #8a927f; font-size: 10px; }\n.scene-wrap { position: relative; min-height: 0; min-width: 0; overflow: hidden; isolation: isolate; background: #d5e6df; }\n.world-canvas, .bridge-scene, .scene-vignette { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }\n.scene-vignette { pointer-events: none; background: linear-gradient(180deg, #254d3510, transparent 16%, transparent 80%, #20443f20); }\n.bridge-scene { touch-action: none; cursor: grab; }\n.bridge-scene:active { cursor: grabbing; }\n.node-marker { cursor: pointer; outline: none; touch-action: manipulation; }\n.node-marker[aria-disabled=\"true\"] { cursor: default; }\n.node-marker:hover .node-halo, .node-marker:focus-visible .node-halo { stroke: #ffe6a2; stroke-width: 3; fill: #ffe6a230; }\n.node-label { font-size: 11px; font-weight: 800; fill: #224f43; stroke: #f7f1d8; stroke-width: 3px; paint-order: stroke; }\n.tutorial-node .node-halo { animation: breathe 1.5s ease-in-out infinite; }\n.edge-hit { cursor: pointer; }\n.edge-hit:hover, .edge-hit:focus-visible { fill: #fff4b522; stroke: #f3ca7155; stroke-width: 2; outline: none; }\n.scene-status { position: absolute; left: 18px; top: 18px; display: flex; align-items: center; gap: 8px; border: 1px solid #ffffffaa; border-radius: 9px; padding: 10px 12px; font-size: 10px; color: #385e4f; background: #fffef1ed; box-shadow: 0 3px 12px #204c3510; pointer-events: none; }\n.status-dot { width: 6px; height: 6px; display: inline-block; border-radius: 50%; background: #639e74; }\n.status-dot.live { background: #d8a945; animation: breathe 1s infinite; }\n.camera-controls { position: absolute; right: 18px; top: 14px; display: flex; padding: 3px; gap: 3px; border-radius: 11px; border: 1px solid #ffffffaa; background: #fffef1ec; box-shadow: 0 3px 12px #204c3510; }\n.camera-controls button { min-width: 44px; height: 40px; border-radius: 8px; background: transparent; color: #56715c; font-size: 11px; font-weight: 700; }\n.camera-controls button[aria-pressed=\"true\"] { background: #315e4d; color: #fff7d7; }\n.world-caption { position: absolute; bottom: 16px; left: 18px; right: 18px; display: flex; justify-content: space-between; gap: 12px; color: #fbffe9; font-size: 8px; letter-spacing: 1.5px; text-shadow: 0 1px 5px #254c3baa; pointer-events: none; }\n.world-caption span:last-child { letter-spacing: .2px; }\n.webgl-error { position: absolute; inset: 30% 8%; display: grid; place-items: center; text-align: center; padding: 20px; color: #6d5731; background: #fff8e8f5; border-radius: 16px; font-size: 14px; }\n.hint-bar { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: #fffef8; border-top: 1px solid #e0e7d8; color: #597049; font-size: 12px; line-height: 1.45; }\n.hint-icon { flex-shrink: 0; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #edf1df; color: #778d45; }\n.hint-label { display: block; font-size: 8px; letter-spacing: 1.3px; color: #8a9278; margin-bottom: 3px; }\n.hint-counter { display: none; }\n.hint-bar.warning { color: #80552b; background: #fff4df; }\n.hint-bar.warning .hint-icon { color: #95652b; background: #f6e6c6; }\n.countdown { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff8dd; background: #143f3b22; pointer-events: none; text-shadow: 0 3px 20px #143f3b55; }\n.countdown > span { font-size: 90px; font-weight: 800; line-height: 1.1; }\n.countdown small { font-size: 14px; letter-spacing: 2px; }\n.modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: #173f3570; backdrop-filter: blur(9px); }\n.modal { width: min(440px, 100%); max-height: calc(100dvh - 40px); overflow: auto; overscroll-behavior: contain; text-align: center; background: #fffef7; border: 1px solid #fffdf3; border-radius: 24px; padding: 30px; box-shadow: 0 28px 90px #143b3540; animation: modal-in .25s ease-out; }\n.modal-eyebrow { display: block; font-size: 9px; font-weight: 750; letter-spacing: 1.8px; color: #9b8149; margin-bottom: 13px; }\n.modal h2 { font-size: 29px; line-height: 1.1; font-weight: 750; letter-spacing: -1px; margin: 0; color: #2c513d; }\n.modal p { font-size: 13px; line-height: 1.65; color: #75816a; margin: 16px 0; }\n.modal > .primary, .modal > .secondary { width: 100%; }\n.modal-symbol { display: grid; place-items: center; width: 74px; height: 74px; margin: 24px auto 18px; border-radius: 24px 24px 24px 8px; color: #ad8542; background: #f3ecd4; }\n.intro-steps { list-style: none; display: grid; gap: 11px; padding: 18px; margin: 22px 0; border-radius: 14px; background: #f3f5eb; text-align: left; }\n.intro-steps li { display: flex; align-items: center; gap: 11px; font-size: 12px; color: #5f7655; }\n.intro-steps b { display: grid; place-items: center; flex-shrink: 0; width: 25px; height: 25px; border-radius: 7px; font-size: 10px; color: #557642; background: #e4ecd9; }\n.secondary { min-height: 44px; padding: 10px 16px; border-radius: 11px; border: 1px solid #dfe5d5; background: #f0f4e8; color: #5c734b; font-size: 12px; font-weight: 650; }\n.secondary:hover { background: #e4ecd8; }\n.text-button { min-height: 36px; padding: 8px; border-radius: 8px; background: transparent; color: #7e896f; font-size: 11px; font-weight: 650; }\n.text-button:hover { background: #f0f3e7; }\n.modal-actions { display: grid; gap: 10px; }\n.result-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 22px 0 12px; }\n.result-stats > div { padding: 14px 4px; border: 1px solid #e6eadb; border-radius: 12px; background: #f5f7ed; }\n.result-stats strong { display: block; font-size: 24px; font-weight: 750; color: #365e43; letter-spacing: -.7px; }\n.result-stats span { font-size: 10px; color: #829071; }\n.modal .attempt-summary { margin: 12px 0 20px; font-size: 10px; color: #859078; }\n.stars { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 26px 0; color: #d8aa43; }\n.stars svg:nth-child(2) { width: 48px; height: 48px; transform: translateY(-5px); }\n.stars .earned { fill: #e9ba52; filter: drop-shadow(0 4px 0 #c2994422); }\n.stars .empty { color: #d9dfcc; }\n.result-failed .modal-eyebrow { color: #ae7e43; }\n.levels-modal { width: min(510px, 100%); }\n.level-grid { display: grid; gap: 8px; margin: 20px 0; }\n.level-choice { width: 100%; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 11px 13px; border: 1px solid #e0e6d6; border-radius: 12px; background: #f7f8ef; color: #4a6941; text-align: left; }\n.level-choice:hover { background: #edf2e3; border-color: #a4b78d; }\n.level-choice.is-current { background: #eaf0df; border-color: #8da974; }\n.level-choice > span:first-child { flex-shrink: 0; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #e7ecd9; color: #72905a; font-size: 14px; font-weight: 800; }\n.level-choice.is-current > span:first-child { background: #3e694b; color: #fff6dc; }\n.level-choice > div { min-width: 0; }\n.level-choice b { font-size: 12px; }\n.level-choice em { display: inline-block; margin-left: 6px; padding: 2px 5px; font-size: 8px; font-weight: 600; font-style: normal; color: #5d7848; background: #dce6ce; border-radius: 4px; vertical-align: middle; }\n.level-choice small { display: block; font-size: 10px; color: #7a886d; margin-top: 4px; }\n.level-choice > span:last-child { margin-left: auto; font-size: 15px; color: #b39b64; letter-spacing: 1px; white-space: nowrap; }\n.level-choice.is-complete > span:last-child { color: #b58a31; }\n.level-footer { display: flex; align-items: center; gap: 12px; }\n.level-footer > .secondary { flex: 1; }\n.level-pagination { display: flex; align-items: center; justify-content: space-between; gap: 4px; flex: 1.5; }\n.level-pagination > span { font-size: 11px; color: #5c734b; white-space: nowrap; font-variant-numeric: tabular-nums; }\n.level-pagination .icon-button { flex-shrink: 0; background: #f0f4e8; }\n.previous-page svg { transform: rotate(180deg); }\n@keyframes breathe { 50% { opacity: .45; } }\n@keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }\n@media (min-width: 1600px) and (min-height: 800px) {\n  .game-content { padding: 26px 32px 32px; }\n  .game-card { grid-template-columns: 324px minmax(0, 1fr); gap: 26px; }\n  .control-panel { padding: 28px; }\n  .level-title h1 { font-size: 23px; }\n  .construction-note { margin: 30px 0; }\n  .construction-note p { font-size: 13px; }\n  .material-button { padding: 20px 14px; }\n  .material-button small { font-size: 10px; }\n  .toolbar { gap: 18px; }\n}\n@media (min-width: 701px) and (max-height: 900px) {\n  .game-shell { grid-template-rows: 62px minmax(0, 1fr); }\n  .game-content { padding: 14px 18px 18px; }\n  .control-panel { padding: 18px; }\n  .game-card { gap: 14px; grid-template-columns: 270px minmax(0, 1fr); }\n  .construction-note { margin: 16px 0; padding-bottom: 14px; }\n  .construction-note p { margin: 6px 0 9px; }\n  .level-description { margin: 12px 0; }\n  .level-progress { margin-bottom: 16px; }\n  .material-button { padding: 10px; gap: 7px; }\n  .keyboard-note { display: none; }\n}\n@media (max-width: 1050px) {\n  .edition { display: none; }\n  .scene-heading > span:last-child { display: none; }\n  .world-caption > span:last-child { display: none; }\n}\n@media (min-width: 701px) and (max-height: 740px) {\n  .construction-note { display: none; }\n  .level-description { margin: 8px 0; }\n  .level-progress { margin-bottom: 10px; }\n  .budget { padding: 12px; }\n  .toolbar { margin-top: 16px; }\n  .material-button { flex-direction: row; align-items: center; gap: 8px; padding: 12px 8px; }\n  .material-button small, .material-check { display: none; }\n  .material-button > svg:first-child { width: 20px; height: 20px; }\n}\n@media (max-width: 700px) {\n  .game-shell { grid-template-rows: 58px minmax(0, 1fr); }\n  .site-header { padding: 0 14px; gap: 8px; }\n  .brand { gap: 8px; font-size: 17px; letter-spacing: -.6px; }\n  .brand-icon { width: 34px; height: 34px; border-radius: 11px 11px 11px 4px; }\n  .brand-icon svg { width: 25px; height: 25px; }\n  .brand small { font-size: 6px; letter-spacing: 1.8px; margin-top: 3px; }\n  .header-actions { gap: 0; }\n  .header-actions .icon-button { min-width: 44px; }\n  .header-levels { padding: 0 10px; margin-left: 3px; font-size: 10px; gap: 6px; }\n  .header-levels svg { width: 16px; }\n  .game-content { padding: 0; }\n  .game-card { grid-template-columns: minmax(0, 1fr); grid-template-rows: 100px minmax(0, 1fr) 137px; gap: 0; }\n  .control-panel { display: contents; }\n  .game-header { grid-column: 1; grid-row: 1; padding: 12px 16px; background: #fffef8; display: grid; grid-template-columns: 1fr; grid-template-rows: 38px 28px; gap: 10px; border-bottom: 1px solid var(--line); }\n  .level-title { gap: 10px; }\n  .level-number { width: 32px; height: 36px; border-radius: 9px; font-size: 16px; }\n  .level-title h1 { font-size: 16px; margin-top: 3px; }\n  .eyebrow { font-size: 8px; letter-spacing: 1.5px; }\n  .level-description, .level-progress, .construction-note, .keyboard-note { display: none; }\n  .budget { display: flex; align-items: center; gap: 14px; padding: 0; background: none; }\n  .budget > div:first-child { gap: 12px; margin: 0; font-size: 10px; }\n  .budget > div:first-child > span svg { display: none; }\n  .budget strong { font-size: 12px; white-space: nowrap; }\n  .budget-track { flex: 1; height: 6px; }\n  .budget-footnote { display: none; }\n  .scene-panel { grid-row: 2; grid-column: 1; grid-template-rows: minmax(0, 1fr) minmax(48px, auto); border-radius: 0; border: 0; }\n  .scene-heading { display: none; }\n  .scene-status { top: 12px; left: 12px; padding: 8px 10px; font-size: 9px; }\n  .camera-controls { right: 12px; top: 8px; }\n  .camera-controls button { height: 44px; }\n  .world-caption { left: 12px; right: 12px; bottom: 12px; font-size: 7px; letter-spacing: 1px; }\n  .hint-bar { padding: 8px 14px; gap: 9px; font-size: 11px; }\n  .hint-icon { width: 28px; height: 28px; border-radius: 8px; }\n  .hint-label { font-size: 7px; margin-bottom: 2px; letter-spacing: 1.1px; }\n  .toolbar { grid-row: 3; grid-column: 1; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 48px 48px; gap: 10px; padding: 12px 14px max(15px, env(safe-area-inset-bottom)); background: #fffef8; border-top: 1px solid #e4e8dc; }\n  .tool-heading { display: none; }\n  .tool-materials { gap: 5px; }\n  .material-button { padding: 6px 9px; gap: 6px; flex-direction: row; align-items: center; justify-content: center; border-radius: 10px; }\n  .material-button > svg:first-child { width: 18px; height: 18px; flex-shrink: 0; }\n  .material-button > span { font-size: 11px; }\n  .material-button small, .material-check { display: none; }\n  .edit-tools { grid-template-columns: repeat(3, 44px); gap: 2px; }\n  .edit-tools .icon-button { height: 48px; padding: 0; background: transparent; }\n  .edit-tools span { font-size: 8px; }\n  .edit-tools svg { width: 18px; height: 18px; }\n  .test-button { grid-column: 1 / -1; grid-row: 2; margin: 0; min-height: 46px; }\n  .keycap { display: none; }\n  .test-button.tutorial-ready { outline-offset: 2px; }\n  .modal-backdrop { padding: 16px; }\n  .modal { padding: 26px 22px; max-height: calc(100dvh - 32px); border-radius: 21px; }\n  .modal h2 { font-size: 27px; }\n  .modal-eyebrow { font-size: 8px; letter-spacing: 1.4px; }\n  .level-choice { padding: 10px; gap: 9px; min-height: 60px; }\n  .level-choice b { font-size: 11px; }\n  .level-choice small { font-size: 9px; }\n  .level-choice > span:last-child { font-size: 12px; letter-spacing: 0; }\n  .level-choice em { display: none; }\n}\n@media (max-width: 360px) {\n  .site-header { padding: 0 10px; }\n  .brand { font-size: 15px; gap: 6px; }\n  .brand-icon { width: 30px; height: 32px; }\n  .header-levels { padding: 0 8px; }\n  .header-levels > svg { display: none; }\n  .toolbar { padding-inline: 10px; gap: 8px; }\n  .material-button { padding-inline: 6px; gap: 4px; }\n  .edit-tools { gap: 0; }\n}\n@media (max-width: 700px) and (max-height: 650px) {\n  .game-shell { grid-template-rows: 50px minmax(0, 1fr); }\n  .game-card { grid-template-rows: 82px minmax(0, 1fr) 118px; }\n  .game-header { padding: 7px 14px; grid-template-rows: 34px 24px; gap: 7px; }\n  .scene-panel { grid-template-rows: minmax(0, 1fr) minmax(44px, auto); }\n  .hint-label { display: none; }\n  .hint-bar { font-size: 10px; padding-block: 6px; }\n  .toolbar { padding-block: 8px 12px; grid-template-rows: 44px 44px; gap: 7px; }\n  .edit-tools .icon-button { height: 44px; }\n  .test-button { min-height: 44px; }\n  .modal { padding: 22px; }\n  .modal-symbol { width: 50px; height: 50px; margin: 16px auto 12px; border-radius: 16px 16px 16px 5px; }\n  .modal-symbol svg { width: 32px; }\n  .modal h2 { font-size: 24px; }\n  .modal p { font-size: 12px; margin: 12px 0; line-height: 1.5; }\n  .intro-steps { margin: 16px 0; padding: 12px; gap: 8px; }\n  .stars { margin: 18px 0; }\n  .stars svg { width: 30px; height: 30px; }\n  .stars svg:nth-child(2) { width: 38px; height: 38px; }\n  .result-stats { margin: 14px 0 8px; }\n  .result-stats > div { padding: 10px 3px; }\n  .level-grid { margin: 14px 0; gap: 6px; }\n  .level-choice { min-height: 52px; padding: 8px 10px; }\n  .level-choice small { display: none; }\n}\n@media (min-width: 701px) and (max-height: 550px) {\n  .game-shell { grid-template-rows: 50px minmax(0, 1fr); }\n  .site-header { padding: 0 16px; }\n  .brand { font-size: 18px; }\n  .brand-icon { width: 32px; height: 32px; border-radius: 10px; }\n  .brand-icon svg { width: 23px; }\n  .brand small { font-size: 6px; margin-top: 2px; }\n  .game-content { padding: 10px 12px 12px; }\n  .game-card { grid-template-columns: 228px minmax(0, 1fr); gap: 10px; }\n  .control-panel { padding: 12px; border-radius: 14px; }\n  .level-number { width: 30px; height: 34px; font-size: 15px; border-radius: 8px; }\n  .level-title { gap: 9px; }\n  .level-title h1 { font-size: 15px; margin-top: 3px; }\n  .eyebrow { font-size: 7px; letter-spacing: 1px; }\n  .level-description, .level-progress, .construction-note, .keyboard-note, .tool-heading { display: none; }\n  .budget { margin-top: 10px; padding: 0; background: none; }\n  .budget > div:first-child { margin-bottom: 7px; font-size: 10px; }\n  .budget strong { font-size: 12px; }\n  .budget-footnote { display: none; }\n  .toolbar { gap: 8px; margin-top: 12px; }\n  .tool-materials { gap: 6px; }\n  .material-button { height: 40px; flex-direction: row; align-items: center; justify-content: center; gap: 7px; padding: 7px; }\n  .material-button > svg:first-child { width: 18px; height: 18px; }\n  .material-button > span { font-size: 11px; }\n  .material-button small, .material-check { display: none; }\n  .edit-tools .icon-button { height: 36px; flex-direction: row; gap: 4px; padding: 4px; }\n  .edit-tools .icon-button svg { width: 15px; }\n  .edit-tools span { font-size: 9px; }\n  .test-button { min-height: 42px; padding: 9px; font-size: 12px; }\n  .scene-panel { border-radius: 14px; grid-template-rows: minmax(0, 1fr) minmax(42px, auto); }\n  .scene-heading { display: none; }\n  .scene-status { left: 10px; top: 10px; padding: 8px; font-size: 9px; }\n  .camera-controls { right: 10px; top: 7px; }\n  .camera-controls button { height: 32px; }\n  .world-caption { left: 10px; bottom: 8px; font-size: 7px; }\n  .hint-bar { padding: 6px 10px; font-size: 10px; gap: 8px; }\n  .hint-label { display: none; }\n  .hint-icon { width: 26px; height: 26px; }\n}\n@media (min-width: 701px) and (max-height: 650px) {\n  .modal-backdrop { padding: 12px; }\n  .modal { width: min(580px, 100%); max-height: calc(100dvh - 24px); padding: 18px 24px; border-radius: 18px; }\n  .modal h2 { font-size: 23px; }\n  .modal-eyebrow { font-size: 8px; margin-bottom: 7px; }\n  .modal p { font-size: 11px; line-height: 1.45; margin: 10px 0; }\n  .modal-symbol { display: none; }\n  .intro-steps { display: flex; gap: 12px; margin: 14px 0; padding: 12px; }\n  .intro-steps li { flex: 1; font-size: 10px; gap: 6px; }\n  .intro-steps b { width: 22px; height: 22px; }\n  .modal-actions { grid-template-columns: 1fr 1fr; gap: 8px; }\n  .modal-actions > .primary { grid-column: 1 / -1; }\n  .pause-modal .modal-actions { grid-template-columns: 1fr 1fr 1fr; margin-top: 18px; }\n  .pause-modal .modal-actions > .primary { grid-column: auto; }\n  .stars { margin: 12px 0 8px; }\n  .stars svg { width: 26px; height: 26px; }\n  .stars svg:nth-child(2) { width: 32px; height: 32px; transform: translateY(-2px); }\n  .result-stats { margin: 10px 0 8px; }\n  .result-stats > div { padding: 7px 3px; }\n  .result-stats strong { font-size: 19px; }\n  .modal .attempt-summary { margin: 6px 0 12px; font-size: 9px; }\n  .level-grid { grid-template-columns: 1fr 1fr; gap: 7px; margin: 12px 0; }\n  .level-choice { min-height: 48px; padding: 8px; gap: 7px; }\n  .level-choice b { font-size: 10px; }\n  .level-choice small, .level-choice em { display: none; }\n  .level-choice > span:first-child { width: 26px; height: 26px; font-size: 12px; }\n  .level-choice > span:last-child { font-size: 11px; letter-spacing: 0; }\n}\n@media (prefers-reduced-motion: reduce) {\n  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }\n}\r\n";
+var bridge_master_default = "/* Everything is scoped to .bridge-app so the game can live inside a host page (GameLab contract §10). */\n.bridge-app {\n  --ink: #243e36;\n  --green: #205c47;\n  --muted: #6b7871;\n  --line: #e2e6dc;\n  --cream: #fffef9;\n  position: relative;\n  width: 100%;\n  height: 100%;\n  min-height: 0;\n  overflow: hidden;\n  font-family: \"Segoe UI\", system-ui, sans-serif;\n  color: #243e36;\n  background: #f3f2ec;\n  font-synthesis: none;\n}\n.bridge-app, .bridge-app *, .bridge-app *::before, .bridge-app *::after { box-sizing: border-box; }\n:where(.bridge-app) button, :where(.bridge-app) a, :where(.bridge-app) [role=\"button\"] { -webkit-tap-highlight-color: transparent; }\n:where(.bridge-app) button { font: inherit; cursor: pointer; touch-action: manipulation; border: 0; }\n:where(.bridge-app) button:disabled { cursor: default; opacity: .38; }\n:where(.bridge-app) button:focus-visible, :where(.bridge-app) a:focus-visible, :where(.bridge-app) [role=\"button\"]:focus-visible { outline: 3px solid #b67d20; outline-offset: 3px; }\n:where(.bridge-app) a { color: inherit; text-decoration: none; }\n:where(.bridge-app) button { transition: background .16s, box-shadow .16s, transform .16s; }\n\n/* ===== Cartoon adventure game screen: full-bleed 3D scene, wooden HUD floating on top ===== */\n.bridge-app {\n  --wood-1: #e2a964; --wood-2: #c47f3e; --wood-edge: #6d3f1b; --wood-dark: #4a2a12;\n  --paper: #fff3d1; --paper-2: #f6dfae; --ink-brown: #4a2a12; --brown-soft: #8a5a2b;\n  --gold: #ffd54a; --gold-edge: #d19200; --good: #46c25a; --good-edge: #1d7a31;\n  --steel: #8db0d3; --steel-edge: #41648a; --red: #ff5a3c;\n  font-family: Nunito, \"Trebuchet MS\", \"Segoe UI Rounded\", \"Segoe UI\", system-ui, sans-serif;\n  color: var(--ink-brown);\n  background: #8fd6ff;\n}\n.game-shell { position: absolute; inset: 0; }\n.scene-wrap { position: absolute; inset: 0; overflow: hidden; isolation: isolate; background: #8fd6ff; }\n.world-canvas, .bridge-scene, .scene-vignette { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }\n.scene-vignette { pointer-events: none; background: radial-gradient(125% 95% at 50% 46%, transparent 58%, #1a2b5a30 100%), linear-gradient(#2f5db61c, transparent 20%, transparent 72%, #1a2b5a2e); }\n.bridge-scene { touch-action: none; cursor: grab; }\n.bridge-scene:active { cursor: grabbing; }\n\n/* Nodes and edges (SVG hit layer over the canvas) */\n.node-marker { cursor: pointer; outline: none; touch-action: manipulation; }\n.node-marker[aria-disabled=\"true\"] { cursor: default; }\n.node-marker:hover .node-halo, .node-marker:focus-visible .node-halo { stroke: #ffd54a; stroke-width: 3.5; fill: #ffd54a55; }\n.node-label { font-size: 12px; font-weight: 900; fill: #fff; stroke: #4a2a12; stroke-width: 4px; stroke-linejoin: round; paint-order: stroke; }\n.node-ring { transform-box: fill-box; transform-origin: center; animation: bm-ring 1.1s ease-out infinite; }\n.tutorial-node .node-halo { animation: bm-breathe 1.2s ease-in-out infinite; }\n.edge-hit { cursor: pointer; }\n.edge-hit:hover, .edge-hit:focus-visible { fill: #ffd54a33; stroke: #ffd54a; stroke-width: 2; outline: none; }\n.cost-pop { position: absolute; z-index: 5; transform: translate(-50%, -50%); font-size: 24px; font-weight: 900; color: #ff5a3c; -webkit-text-stroke: 6px #fff; paint-order: stroke fill; pointer-events: none; animation: bm-pop-up 1s ease-out forwards; }\n.cost-pop.gain { color: #1f9c3d; }\n\n/* HUD containers: they never block the scene, only their children do */\n.hud-top, .hud-bottom { position: absolute; left: 0; right: 0; z-index: 6; pointer-events: none; }\n.hud-top > *, .hud-bottom > * { pointer-events: auto; }\n.hud-top { top: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; gap: 12px; padding: calc(12px + env(safe-area-inset-top)) 16px 8px; }\n.hud-left { display: flex; align-items: flex-start; gap: 10px; min-width: 0; justify-self: start; }\n.hud-center { display: flex; flex-direction: column; align-items: center; gap: 7px; }\n.hud-right { display: flex; align-items: center; gap: 8px; justify-self: end; }\n.hud-bottom { bottom: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 6px 16px calc(14px + env(safe-area-inset-bottom)); }\n\n/* Wooden plank buttons */\n.hud-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; min-width: 48px; padding: 0 14px; border-radius: 16px; color: #fff7e0; font-size: 14px; font-weight: 900; letter-spacing: .2px; text-shadow: 0 2px 0 var(--wood-edge);\n  background: linear-gradient(180deg, var(--wood-1), var(--wood-2)); border: 3px solid var(--wood-edge); border-bottom-width: 6px; box-shadow: inset 0 2px 0 #ffffff55, 0 8px 14px #1a2b5a40; }\n.hud-btn svg { filter: drop-shadow(0 2px 0 var(--wood-edge)); }\n.hud-btn:not(:disabled):hover { filter: brightness(1.08); transform: translateY(-1px); }\n.hud-btn:not(:disabled):active { transform: translateY(3px); border-bottom-width: 3px; }\n.hud-round { padding: 0; width: 48px; }\n\n.level-card { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: \"num copy\" \"num prog\"; column-gap: 12px; row-gap: 5px; align-items: center; min-width: 0; max-width: 340px; padding: 8px 16px 9px 9px; border-radius: 18px;\n  background: linear-gradient(180deg, var(--wood-1), var(--wood-2)); border: 3px solid var(--wood-edge); border-bottom-width: 6px; box-shadow: inset 0 2px 0 #ffffff55, 0 8px 14px #1a2b5a40; }\n.level-number { grid-area: num; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; font-size: 22px; font-weight: 900; color: var(--ink-brown);\n  background: radial-gradient(circle at 35% 30%, #fff1a8, var(--gold) 55%, #f0a800); border: 3px solid var(--wood-edge); box-shadow: inset 0 -3px 0 var(--gold-edge); }\n.level-copy { grid-area: copy; min-width: 0; }\n.eyebrow { display: block; font-size: 10.5px; font-weight: 900; letter-spacing: 1.4px; text-transform: uppercase; color: #ffe9b6; text-shadow: 0 1px 0 var(--wood-edge); }\n.level-card h1 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 20px; line-height: 1.12; font-weight: 900; color: #fff7e0; text-shadow: 0 2px 0 var(--wood-edge); }\n.level-progress { grid-area: prog; display: flex; gap: 5px; }\n.level-progress > span { flex: 1; min-width: 20px; height: 21px; display: grid; place-items: center; border-radius: 7px; font-size: 10px; font-weight: 900; color: #f6dfae; background: #8a5a2b; border: 2px solid var(--wood-edge); }\n.level-progress svg { fill: currentColor; stroke: none; }\n.level-progress .current { color: var(--ink-brown); background: var(--gold); box-shadow: 0 0 0 2px #fff8; animation: bm-bob 1.6s ease-in-out infinite; }\n.level-progress .complete:not(.current) { color: #fff; background: var(--good); }\n\n.budget { min-width: 300px; padding: 8px 14px 9px; border-radius: 18px; color: var(--ink-brown); background: var(--paper); border: 3px solid var(--wood-edge); border-bottom-width: 6px; box-shadow: 0 8px 14px #1a2b5a40; }\n.budget-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }\n.budget-label { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 900; letter-spacing: .3px; }\n.budget strong { font-size: 22px; line-height: 1; font-weight: 900; font-variant-numeric: tabular-nums; }\n.budget-track { height: 14px; margin-top: 6px; overflow: hidden; border-radius: 9px; background: #e9cf98; border: 2px solid var(--wood-edge); }\n.budget-track span { display: block; height: 100%; border-radius: 6px; background: repeating-linear-gradient(-45deg, #ffd54a 0 10px, #ffb300 10px 20px); background-size: 28px 28px; animation: bm-stripes 1s linear infinite; transition: width .35s cubic-bezier(.3, 1.4, .5, 1); }\n.budget.is-low .budget-track span { background: repeating-linear-gradient(-45deg, #ff6b4a 0 10px, #d9381e 10px 20px); background-size: 28px 28px; }\n.budget.is-low strong { color: #c4301a; animation: bm-pulse .8s ease-in-out infinite; }\n.budget-footnote { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; font-weight: 800; color: var(--brown-soft); }\n.goal-target { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 900; color: #ffe9b6; background: var(--wood-dark); border: 2px solid var(--wood-edge); box-shadow: 0 4px 8px #1a2b5a40; }\n.goal-target svg { fill: var(--gold); stroke: var(--gold); }\n\n/* Robot hint bubble */\n.hint-bar { position: relative; display: flex; align-items: center; gap: 12px; width: min(100%, 660px); height: 76px; padding: 8px 20px 8px 8px; border-radius: 26px; font-size: 15px; font-weight: 800; line-height: 1.3; color: var(--ink-brown);\n  background: var(--paper); border: 3px solid var(--wood-edge); border-bottom-width: 6px; box-shadow: 0 8px 14px #1a2b5a40; }\n.hint-bar::after { content: \"\"; position: absolute; left: 50%; bottom: -13px; width: 18px; height: 18px; margin-left: -9px; background: var(--paper); border: solid var(--wood-edge); border-width: 0 3px 3px 0; transform: rotate(45deg); }\n.hint-avatar { flex-shrink: 0; width: 56px; height: 56px; border-radius: 50%; object-fit: cover; object-position: 50% 10%; background: linear-gradient(#ffe3db, #efebff); border: 3px solid var(--wood-edge); animation: bm-bob 2.6s ease-in-out infinite; }\n.hint-copy { display: block; min-width: 0; }\n.hint-text { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }\n.hint-label { display: block; margin-bottom: 1px; font-size: 10.5px; font-weight: 900; letter-spacing: 1.3px; color: #e0501f; }\n.hint-counter { display: none; }\n.hint-bar.warning { background: #ffe3d6; }\n.hint-bar.warning::after { background: #ffe3d6; }\n.hint-bar.warning .hint-label { color: #c4301a; }\n\n/* Build dock */\n.toolbar { display: flex; align-items: center; gap: 14px; max-width: 100%; padding: 10px 14px 12px; border-radius: 26px; background: linear-gradient(180deg, var(--wood-1), var(--wood-2)); border: 3px solid var(--wood-edge); border-bottom-width: 7px; box-shadow: inset 0 2px 0 #ffffff55, 0 12px 22px #1a2b5a55; }\n.tool-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n.tool-materials { display: flex; gap: 10px; }\n.material-button { position: relative; display: flex; align-items: center; gap: 10px; min-width: 168px; min-height: 58px; padding: 6px 16px 6px 6px; border-radius: 18px; text-align: left; font-weight: 900; color: var(--ink-brown); background: var(--paper-2); border: 3px solid var(--wood-edge); border-bottom-width: 6px; }\n.material-button > svg:first-child { flex-shrink: 0; width: 44px; height: 44px; padding: 10px; border-radius: 50%; color: #fff; background: #5d6b7a; border: 2px solid var(--wood-edge); }\n.tool-materials .material-button:nth-child(2) > svg:first-child { background: var(--steel); }\n.material-button > span { display: flex; flex-direction: column; font-size: 17px; line-height: 1.15; }\n.material-button small { font-size: 11px; font-weight: 700; color: var(--brown-soft); }\n.material-check { position: absolute; top: -10px; right: -8px; width: 26px; height: 26px; padding: 4px; border-radius: 50%; color: #fff; background: var(--good); border: 2px solid var(--wood-edge); }\n.material-button.active { background: #fff2a8; box-shadow: 0 0 0 4px #ffd54acc, 0 0 20px #ffd54a99; transform: translateY(-3px); }\n.material-button:not(:disabled):not(.active):hover { filter: brightness(1.05); transform: translateY(-1px); }\n.edit-tools { display: flex; gap: 8px; }\n.edit-tools .icon-button { flex-direction: column; gap: 2px; width: 62px; min-width: 0; height: 58px; border-radius: 16px; color: #fff; font-weight: 900; text-shadow: 0 1px 0 var(--steel-edge);\n  background: linear-gradient(180deg, #a9c9e8, var(--steel)); border: 3px solid var(--steel-edge); border-bottom-width: 6px; }\n.edit-tools .icon-button:not(:disabled):hover { filter: brightness(1.08); transform: translateY(-1px); }\n.edit-tools .icon-button:not(:disabled):active { transform: translateY(3px); border-bottom-width: 3px; }\n.edit-tools .icon-button:disabled { filter: grayscale(.8); opacity: .5; }\n.edit-tools .icon-button svg { width: 20px; height: 20px; }\n.edit-tools span { font-size: 10px; }\n.primary { display: inline-flex; justify-content: center; align-items: center; gap: 10px; min-height: 56px; padding: 0 22px; border-radius: 18px; font-size: 18px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 var(--good-edge);\n  background: linear-gradient(180deg, #74e374, #33b04e); border: 3px solid var(--good-edge); border-bottom-width: 7px; box-shadow: inset 0 2px 0 #ffffff66, 0 8px 14px #1a2b5a40; }\n.primary:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); }\n.primary:active:not(:disabled) { transform: translateY(3px); border-bottom-width: 4px; }\n.test-button { min-width: 232px; min-height: 66px; font-size: 20px; animation: bm-cta 2.2s ease-in-out infinite; }\n.test-button.tutorial-ready { outline: 4px solid var(--gold); outline-offset: 4px; }\n.keycap { margin-left: 4px; padding: 1px 6px; border-radius: 6px; font-size: 12px; color: #fff; background: #1d7a3188; border: 2px solid #ffffff55; }\n.keyboard-note { display: none; margin: 0; font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px #1a2b5a; }\n\n/* Scene chips */\n.scene-status { position: absolute; left: 16px; top: calc(var(--inset-top) + 6px); display: flex; align-items: center; gap: 8px; padding: 6px 13px; border-radius: 999px; font-size: 12px; font-weight: 900; color: var(--ink-brown); background: #fffaf0e6; border: 2px solid var(--wood-edge); pointer-events: none; }\n.status-dot { width: 9px; height: 9px; display: inline-block; border-radius: 50%; background: var(--good); }\n.status-dot.live { background: #ff9d1f; animation: bm-breathe 1s infinite; }\n.camera-controls { position: absolute; z-index: 4; right: 16px; top: calc(var(--inset-top) + 6px); display: flex; gap: 4px; padding: 4px; border-radius: 15px; background: var(--paper); border: 3px solid var(--wood-edge); border-bottom-width: 5px; }\n.camera-controls button { min-width: 46px; height: 40px; border-radius: 10px; font-size: 13px; font-weight: 900; color: var(--ink-brown); background: transparent; }\n.camera-controls button[aria-pressed=\"true\"] { background: var(--gold); box-shadow: inset 0 -3px 0 var(--gold-edge); }\n.webgl-error { position: absolute; z-index: 8; inset: 30% 8%; display: grid; place-items: center; padding: 20px; text-align: center; font-size: 15px; font-weight: 800; color: var(--ink-brown); background: var(--paper); border: 3px solid var(--wood-edge); border-radius: 20px; }\n.countdown { position: absolute; inset: 0; z-index: 7; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }\n.countdown > span { font-size: 150px; line-height: 1; font-weight: 900; color: #fff; -webkit-text-stroke: 12px var(--wood-edge); paint-order: stroke fill; text-shadow: 0 10px 0 var(--wood-edge); animation: bm-count .95s cubic-bezier(.2, 1.6, .4, 1) both; }\n.countdown small { margin-top: 8px; font-size: 19px; font-weight: 900; letter-spacing: 3px; color: #fff; text-shadow: 0 2px 0 var(--wood-edge), 0 0 12px var(--wood-edge); }\n\n@keyframes bm-breathe { 50% { opacity: .45; } }\n@keyframes bm-ring { 0% { transform: scale(.8); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }\n@keyframes bm-bob { 50% { transform: translateY(-3px); } }\n@keyframes bm-stripes { to { background-position: 28px 0; } }\n@keyframes bm-pulse { 50% { transform: scale(1.12); } }\n@keyframes bm-cta { 0%, 100% { box-shadow: inset 0 2px 0 #ffffff66, 0 8px 14px #1a2b5a40, 0 0 0 0 #74e37400; } 50% { box-shadow: inset 0 2px 0 #ffffff66, 0 8px 14px #1a2b5a40, 0 0 0 9px #74e37466; } }\n@keyframes bm-count { 0% { transform: scale(2.4); opacity: 0; } 28% { transform: scale(1); opacity: 1; } 82% { transform: scale(1); opacity: 1; } 100% { transform: scale(.7); opacity: 0; } }\n@keyframes bm-pop-up { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.25); } 100% { opacity: 0; transform: translate(-50%, -190%) scale(1); } }\n\n/* Phones and tablets in portrait: two HUD rows on top, a compact two-row dock below */\n@media (max-width: 900px) {\n  .hud-top { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: \"left right\" \"center center\"; gap: 8px; padding: calc(8px + env(safe-area-inset-top)) 10px 6px; }\n  .hud-left { grid-area: left; width: 100%; }\n  .hud-right { grid-area: right; gap: 6px; }\n  .hud-center { grid-area: center; flex-direction: row; align-items: stretch; width: 100%; gap: 8px; }\n  .hud-btn { min-width: 44px; min-height: 44px; padding: 0; }\n  .hud-round { width: 44px; }\n  .hud-levels span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n  .level-card { flex: 1; max-width: none; padding: 5px 12px 5px 5px; grid-template-areas: \"num copy\"; column-gap: 9px; }\n  .level-number { width: 38px; height: 38px; font-size: 16px; }\n  .level-card h1 { font-size: 15px; }\n  .eyebrow { font-size: 9px; letter-spacing: 1.2px; }\n  .level-progress { display: none; }\n  .budget { flex: 1; min-width: 0; padding: 5px 10px 6px; border-bottom-width: 5px; }\n  .budget strong { font-size: 16px; }\n  .budget-label { font-size: 11px; }\n  .budget-label svg, .budget-footnote { display: none; }\n  .budget-track { height: 10px; margin-top: 3px; }\n  .goal-target { flex: 0 1 112px; align-self: center; padding: 4px 9px; border-radius: 12px; font-size: 10px; line-height: 1.15; }\n  .goal-target svg { display: none; }\n  .hud-bottom { gap: 12px; padding: 4px 8px calc(10px + env(safe-area-inset-bottom)); }\n  .hint-bar { width: 100%; height: 66px; padding: 6px 12px 6px 6px; border-radius: 20px; font-size: 13px; }\n  .hint-avatar { width: 46px; height: 46px; }\n  .hint-label { font-size: 9px; }\n  .toolbar { flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; padding: 8px 8px 10px; border-radius: 22px; }\n  .tool-materials { flex: 1 1 100%; gap: 8px; }\n  .material-button { flex: 1; min-width: 0; min-height: 50px; padding: 4px 8px 4px 4px; gap: 7px; }\n  .material-button > svg:first-child { width: 38px; height: 38px; padding: 8px; }\n  .material-button > span { font-size: 14px; }\n  .material-button small { display: none; }\n  .material-check { top: -9px; right: -5px; width: 22px; height: 22px; }\n  .edit-tools { flex: 0 0 auto; gap: 4px; }\n  .edit-tools .icon-button { width: 44px; height: 50px; }\n  .edit-tools span { font-size: 8px; }\n  .test-button { flex: 1 1 108px; min-width: 0; min-height: 50px; padding: 0 8px; gap: 6px; font-size: 15px; }\n  .keycap, .keyboard-note { display: none; }\n  .camera-controls { right: 10px; }\n  .camera-controls button { height: 44px; }\n  .scene-status { left: 10px; font-size: 11px; }\n  .countdown > span { font-size: 110px; -webkit-text-stroke-width: 9px; }\n}\n@media (max-width: 360px) {\n  .hud-center { gap: 6px; }\n  .goal-target { flex-basis: 96px; }\n  .level-card { padding-right: 8px; }\n}\n/* Short screens (landscape phones, small laptop windows): tight HUD, hint only when something is wrong */\n@media (max-height: 560px) {\n  .hud-top { padding: calc(6px + env(safe-area-inset-top)) 10px 4px; gap: 8px; }\n  .hud-left { gap: 8px; }\n  .hud-btn, .hud-round { min-height: 44px; min-width: 44px; }\n  .hud-round { width: 44px; }\n  .level-card { padding: 4px 12px 4px 5px; grid-template-areas: \"num copy\"; column-gap: 9px; border-bottom-width: 5px; }\n  .level-number { width: 36px; height: 36px; font-size: 15px; }\n  .level-card h1 { font-size: 14px; }\n  .eyebrow { font-size: 8.5px; }\n  .level-progress, .goal-target, .budget-footnote { display: none; }\n  .budget { min-width: 210px; padding: 4px 12px 5px; border-bottom-width: 5px; }\n  .budget strong { font-size: 16px; }\n  .budget-label svg { display: none; }\n  .budget-track { height: 9px; margin-top: 3px; }\n  .hud-bottom { gap: 0; padding: 0 10px calc(8px + env(safe-area-inset-bottom)); }\n  .hint-bar:not(.warning) { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; box-shadow: none; }\n  .hint-bar.warning { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); width: min(560px, calc(100% - 20px)); height: 52px; padding: 4px 14px 4px 4px; font-size: 12px; pointer-events: none; }\n  .hint-bar.warning .hint-avatar { width: 40px; height: 40px; }\n  .hint-bar::after { display: none; }\n  .toolbar { gap: 8px; padding: 6px 10px 8px; border-radius: 20px; }\n  .tool-materials { gap: 6px; }\n  .material-button { min-width: 0; min-height: 46px; padding: 3px 12px 3px 3px; gap: 6px; }\n  .material-button > svg:first-child { width: 34px; height: 34px; padding: 7px; }\n  .material-button > span { font-size: 13px; }\n  .material-button small { display: none; }\n  .edit-tools { gap: 4px; }\n  .edit-tools .icon-button { width: 46px; height: 46px; }\n  .edit-tools span { display: none; }\n  .test-button { min-width: 0; min-height: 46px; padding: 0 16px; font-size: 15px; }\n  .keycap { display: none; }\n  .camera-controls button { height: 34px; }\n  .countdown > span { font-size: 90px; -webkit-text-stroke-width: 8px; }\n}\n\n.modal-backdrop { position: absolute; inset: 0; z-index: 20; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; padding: 20px; background: #173f3570; backdrop-filter: blur(9px); }\n.modal { width: min(440px, 100%); max-height: 100%; overflow: auto; overscroll-behavior: contain; text-align: center; background: #fffef7; border: 1px solid #fffdf3; border-radius: 24px; padding: 30px; box-shadow: 0 28px 90px #143b3540; animation: bm-modal-in .25s ease-out; }\n.modal-eyebrow { display: block; font-size: 9px; font-weight: 750; letter-spacing: 1.8px; color: #9b8149; margin-bottom: 13px; }\n.modal h2 { font-size: 29px; line-height: 1.1; font-weight: 750; letter-spacing: -1px; margin: 0; color: #2c513d; }\n.modal p { font-size: 13px; line-height: 1.65; color: #75816a; margin: 16px 0; }\n.modal > .primary, .modal > .secondary { width: 100%; }\n.modal-symbol { display: grid; place-items: center; width: 74px; height: 74px; margin: 24px auto 18px; border-radius: 24px 24px 24px 8px; color: #ad8542; background: #f3ecd4; }\n.intro-steps { list-style: none; display: grid; gap: 11px; padding: 18px; margin: 22px 0; border-radius: 14px; background: #f3f5eb; text-align: left; }\n.intro-steps li { display: flex; align-items: center; gap: 11px; font-size: 12px; color: #5f7655; }\n.intro-steps b { display: grid; place-items: center; flex-shrink: 0; width: 25px; height: 25px; border-radius: 7px; font-size: 10px; color: #557642; background: #e4ecd9; }\n.secondary { min-height: 44px; padding: 10px 16px; border-radius: 11px; border: 1px solid #dfe5d5; background: #f0f4e8; color: #5c734b; font-size: 12px; font-weight: 650; }\n.secondary:hover { background: #e4ecd8; }\n.text-button { min-height: 36px; padding: 8px; border-radius: 8px; background: transparent; color: #7e896f; font-size: 11px; font-weight: 650; }\n.text-button:hover { background: #f0f3e7; }\n.modal-actions { display: grid; gap: 10px; }\n.result-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 22px 0 12px; }\n.result-stats > div { padding: 14px 4px; border: 1px solid #e6eadb; border-radius: 12px; background: #f5f7ed; }\n.result-stats strong { display: block; font-size: 24px; font-weight: 750; color: #365e43; letter-spacing: -.7px; }\n.result-stats span { font-size: 10px; color: #829071; }\n.modal .attempt-summary { margin: 12px 0 20px; font-size: 10px; color: #859078; }\n.stars { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 26px 0; color: #d8aa43; }\n.stars svg:nth-child(2) { width: 48px; height: 48px; transform: translateY(-5px); }\n.stars .earned { fill: #e9ba52; filter: drop-shadow(0 4px 0 #c2994422); }\n.stars .empty { color: #d9dfcc; }\n.result-failed .modal-eyebrow { color: #ae7e43; }\n.levels-modal { width: min(510px, 100%); }\n.level-grid { display: grid; gap: 8px; margin: 20px 0; }\n.level-choice { width: 100%; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 11px 13px; border: 1px solid #e0e6d6; border-radius: 12px; background: #f7f8ef; color: #4a6941; text-align: left; }\n.level-choice:hover { background: #edf2e3; border-color: #a4b78d; }\n.level-choice.is-current { background: #eaf0df; border-color: #8da974; }\n.level-choice > span:first-child { flex-shrink: 0; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #e7ecd9; color: #72905a; font-size: 14px; font-weight: 800; }\n.level-choice.is-current > span:first-child { background: #3e694b; color: #fff6dc; }\n.level-choice > div { min-width: 0; }\n.level-choice b { font-size: 12px; }\n.level-choice em { display: inline-block; margin-left: 6px; padding: 2px 5px; font-size: 8px; font-weight: 600; font-style: normal; color: #5d7848; background: #dce6ce; border-radius: 4px; vertical-align: middle; }\n.level-choice small { display: block; font-size: 10px; color: #7a886d; margin-top: 4px; }\n.level-choice > span:last-child { margin-left: auto; font-size: 15px; color: #b39b64; letter-spacing: 1px; white-space: nowrap; }\n.level-choice.is-complete > span:last-child { color: #b58a31; }\n.level-footer { display: flex; align-items: center; gap: 12px; }\n.level-footer > .secondary { flex: 1; }\n.level-pagination { display: flex; align-items: center; justify-content: space-between; gap: 4px; flex: 1.5; }\n.level-pagination > span { font-size: 11px; color: #5c734b; white-space: nowrap; font-variant-numeric: tabular-nums; }\n.level-pagination .icon-button { flex-shrink: 0; background: #f0f4e8; }\n.previous-page svg { transform: rotate(180deg); }\n@keyframes bm-modal-in { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }\n/* ===== Cartoon dialogs: pause, result, levels, exit, save (the intro keeps its GameLab look below) ===== */\n.modal-backdrop { background: #2a4a8a73; backdrop-filter: blur(6px); }\n.modal { position: relative; color: var(--ink-brown); background: var(--paper); border: 4px solid var(--wood-edge); border-bottom-width: 8px; border-radius: 28px; box-shadow: 0 24px 60px #1a2b5a66; }\n.modal h2 { font-size: 30px; font-weight: 900; letter-spacing: -.4px; color: var(--ink-brown); }\n.modal p { font-size: 14px; font-weight: 700; color: #7a5230; }\n.modal-eyebrow { font-size: 10px; font-weight: 900; letter-spacing: 1.6px; color: #e0501f; }\n.result-failed .modal-eyebrow { color: #c4301a; }\n.modal-symbol { color: var(--ink-brown); background: var(--gold); border: 3px solid var(--wood-edge); }\n.secondary { min-height: 48px; border-radius: 14px; font-size: 14px; font-weight: 900; color: var(--ink-brown); background: var(--paper-2); border: 3px solid var(--wood-edge); border-bottom-width: 5px; }\n.secondary:hover { filter: brightness(1.05); background: var(--paper-2); }\n.secondary:active { transform: translateY(2px); border-bottom-width: 3px; }\n.text-button { font-size: 13px; font-weight: 900; color: var(--brown-soft); }\n.text-button:hover { background: #f1dba9; }\n.icon-button { min-width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 12px; color: #fff; background: linear-gradient(180deg, #a9c9e8, var(--steel)); border: 3px solid var(--steel-edge); border-bottom-width: 5px; }\n.icon-button:disabled { filter: grayscale(.8); opacity: .5; }\n.level-pagination > span { font-size: 12px; font-weight: 900; color: var(--ink-brown); }\n.level-pagination .icon-button { background: linear-gradient(180deg, #a9c9e8, var(--steel)); }\n.result-stats > div { background: #fff; border: 3px solid var(--wood-edge); border-bottom-width: 5px; border-radius: 14px; }\n.result-stats strong { color: var(--ink-brown); font-weight: 900; }\n.result-stats span { font-size: 11px; font-weight: 800; color: var(--brown-soft); }\n.modal .attempt-summary { font-size: 12px; font-weight: 800; color: var(--brown-soft); }\n.stars { gap: 10px; }\n.stars .earned { color: #b87400; fill: var(--gold); filter: drop-shadow(0 4px 0 #b8740088); animation: bm-star .7s cubic-bezier(.2, 1.9, .4, 1) both; animation-delay: calc(var(--i, 1) * .22s + .2s); }\n.stars .empty { color: #cfb88a; fill: none; }\n.confetti { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; border-radius: inherit; }\n.confetti i { position: absolute; top: -18px; border-radius: 2px; animation: bm-confetti var(--fall, 2s) ease-in var(--delay, 0s) both; }\n.result-modal > :not(.confetti) { position: relative; z-index: 1; }\n.level-choice { color: var(--ink-brown); background: #fff8e3; border: 3px solid var(--wood-edge); border-bottom-width: 5px; border-radius: 16px; }\n.level-choice:hover { background: #fff2a8; border-color: var(--wood-edge); }\n.level-choice.is-current { background: #fff2a8; border-color: var(--wood-edge); }\n.level-choice > span:first-child { color: var(--ink-brown); background: var(--paper-2); border: 2px solid var(--wood-edge); }\n.level-choice.is-current > span:first-child { color: var(--ink-brown); background: var(--gold); }\n.level-choice b { font-size: 13px; font-weight: 900; }\n.level-choice small { font-size: 11px; font-weight: 700; color: var(--brown-soft); }\n.level-choice em { color: var(--ink-brown); background: var(--gold); font-weight: 900; }\n.level-choice > span:last-child { color: #c98a00; }\n.save-list li { background: #fff8e3; border: 2px solid var(--wood-edge); }\n.save-list small { color: var(--brown-soft); }\n@keyframes bm-star { 0% { transform: scale(0) rotate(-40deg); } 100% { transform: scale(1) rotate(0); } }\n@keyframes bm-confetti { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(560px) rotate(var(--spin, 300deg)); opacity: .9; } }\n@media (prefers-reduced-motion: reduce) {\n  .bridge-app *, .bridge-app *::before, .bridge-app *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }\n  .cost-pop, .confetti { display: none; }\n  .stars .earned { transform: none; }\n}\n\n/* Compact dialogs on small screens (kept after the theme so they win). */\n@media (max-width: 700px) {\n  .modal-backdrop { padding: 16px; }\n  .modal { padding: 26px 22px; max-height: 100%; border-radius: 21px; }\n  .modal h2 { font-size: 27px; }\n  .modal-eyebrow { font-size: 8px; letter-spacing: 1.4px; }\n  .level-choice { padding: 10px; gap: 9px; min-height: 60px; }\n  .level-choice b { font-size: 11px; }\n  .level-choice small { font-size: 9px; }\n  .level-choice > span:last-child { font-size: 12px; letter-spacing: 0; }\n  .level-choice em { display: none; }\n}\n@media (max-width: 700px) and (max-height: 650px) {\n  .modal { padding: 22px; }\n  .modal-symbol { width: 50px; height: 50px; margin: 16px auto 12px; border-radius: 16px 16px 16px 5px; }\n  .modal-symbol svg { width: 32px; }\n  .modal h2 { font-size: 24px; }\n  .modal p { font-size: 12px; margin: 12px 0; line-height: 1.5; }\n  .intro-steps { margin: 16px 0; padding: 12px; gap: 8px; }\n  .stars { margin: 18px 0; }\n  .stars svg { width: 30px; height: 30px; }\n  .stars svg:nth-child(2) { width: 38px; height: 38px; }\n  .result-stats { margin: 14px 0 8px; }\n  .result-stats > div { padding: 10px 3px; }\n  .level-grid { margin: 14px 0; gap: 6px; }\n  .level-choice { min-height: 52px; padding: 8px 10px; }\n  .level-choice small { display: none; }\n}\n@media (min-width: 701px) and (max-height: 650px) {\n  .modal-backdrop { padding: 12px; }\n  .modal { width: min(580px, 100%); max-height: 100%; padding: 18px 24px; border-radius: 18px; }\n  .modal h2 { font-size: 23px; }\n  .modal-eyebrow { font-size: 8px; margin-bottom: 7px; }\n  .modal p { font-size: 11px; line-height: 1.45; margin: 10px 0; }\n  .modal-symbol { display: none; }\n  .intro-steps { display: flex; gap: 12px; margin: 14px 0; padding: 12px; }\n  .intro-steps li { flex: 1; font-size: 10px; gap: 6px; }\n  .intro-steps b { width: 22px; height: 22px; }\n  .modal-actions { grid-template-columns: 1fr 1fr; gap: 8px; }\n  .modal-actions > .primary { grid-column: 1 / -1; }\n  .pause-modal .modal-actions { grid-template-columns: 1fr 1fr 1fr; margin-top: 18px; }\n  .pause-modal .modal-actions > .primary { grid-column: auto; }\n  .stars { margin: 12px 0 8px; }\n  .stars svg { width: 26px; height: 26px; }\n  .stars svg:nth-child(2) { width: 32px; height: 32px; transform: translateY(-2px); }\n  .result-stats { margin: 10px 0 8px; }\n  .result-stats > div { padding: 7px 3px; }\n  .result-stats strong { font-size: 19px; }\n  .modal .attempt-summary { margin: 6px 0 12px; font-size: 9px; }\n  .level-grid { grid-template-columns: 1fr 1fr; gap: 7px; margin: 12px 0; }\n  .level-choice { min-height: 48px; padding: 8px; gap: 7px; }\n  .level-choice b { font-size: 10px; }\n  .level-choice small, .level-choice em { display: none; }\n  .level-choice > span:first-child { width: 26px; height: 26px; font-size: 12px; }\n  .level-choice > span:last-child { font-size: 11px; letter-spacing: 0; }\n}\n\n@media (max-height: 650px) {\n  .modal { border-width: 3px; border-bottom-width: 6px; }\n}\n@media (max-width: 700px) {\n  .modal { border-width: 3px; border-bottom-width: 6px; }\n}\n\n/* While a dialog is open the screen behind it is inert: freeze its animations (and save the battery). */\n.bridge-app [inert], .bridge-app [inert] * { animation-play-state: paused !important; }\n@media (max-height: 650px) {\n  .modal .primary { min-height: 44px; padding: 0 16px; font-size: 15px; border-bottom-width: 5px; }\n  .modal .secondary { min-height: 40px; font-size: 13px; border-bottom-width: 4px; }\n  .modal .text-button { min-height: 32px; }\n  .modal h2 { font-size: 23px; }\n}\n\n/* ===== GameLab-style intro dialog (tokens from the GameLab dev guide §2) ===== */\n.gl-intro {\n  --gl-brand: #fa4f28; --gl-brand-strong: #dc3a12; --gl-brand-edge: #ae2c0b; --gl-brand-tint: #ffede8;\n  --gl-purple: #6c47ff; --gl-purple-edge: #5233d6; --gl-purple-tint: #efebff;\n  --gl-green-strong: #1c7f38; --gl-green-tint: #e6f6eb;\n  --gl-ink: #1e1b39; --gl-muted: #6b6985; --gl-line: #e4e3ee; --gl-line-3d: #d3d2e3; --gl-lilac: #f5f4fc;\n  width: min(620px, 100%); padding: 0; display: flex; flex-direction: column; text-align: left;\n  color: var(--gl-ink); background: #fff;\n  border: 2px solid var(--gl-line); border-bottom: 4px solid var(--gl-line-3d); border-radius: 22px;\n  font-family: Aeonik, Nunito, Inter, \"Segoe UI\", system-ui, sans-serif;\n  box-shadow: 0 30px 80px #1e1b3944;\n}\n.gl-hero { position: relative; flex-shrink: 0; height: 204px; overflow: hidden; border-radius: 20px 20px 0 0; background: linear-gradient(#ffe3db, #efebff); }\n.gl-intro-level .gl-hero { height: 140px; }\n.gl-scene { display: block; width: 100%; height: 100%; }\n.gl-robot { filter: drop-shadow(0 6px 5px #1e1b3938); animation: gl-float 3.4s ease-in-out infinite; }\n.gl-float { animation: gl-float 3s ease-in-out infinite; }\n.gl-coin { animation-delay: -.8s; }\n.gl-gem { animation-delay: -1.7s; }\n.gl-pop.gl-bubble { transform-origin: 100% 100%; }\n.gl-body { padding: 36px 26px 6px; }\n.gl-intro-level .gl-body { padding-top: 30px; }\n.gl-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; background: var(--gl-brand-tint); color: #b3290a; font-size: 11px; font-weight: 800; letter-spacing: .9px; }\n.gl-badge svg { fill: var(--gl-brand); stroke: var(--gl-brand); }\n.gl-intro .gl-body h2 { margin: 12px 0 6px; font-size: 33px; line-height: 1.08; letter-spacing: -.6px; font-weight: 800; color: var(--gl-ink); }\n.gl-intro .gl-lead { margin: 0 0 18px; font-size: 15px; line-height: 1.55; color: var(--gl-muted); }\n.gl-how { margin: 0 0 10px; font-size: 12px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; color: var(--gl-ink); }\n.gl-steps { list-style: none; margin: 0 0 14px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }\n.gl-step { position: relative; display: flex; flex-direction: column; gap: 9px; padding: 14px 12px 13px; background: #fff; border: 2px solid var(--gl-line); border-bottom: 4px solid var(--gl-line-3d); border-radius: 16px; animation: gl-rise .5s ease-out both; }\n.gl-step-0 { animation-delay: .1s; } .gl-step-1 { animation-delay: .2s; } .gl-step-2 { animation-delay: .3s; }\n.gl-step-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 13px; background: var(--gl-brand-tint); color: var(--gl-brand-strong); }\n.gl-step-1 .gl-step-icon { background: var(--gl-purple-tint); color: var(--gl-purple-edge); }\n.gl-step-2 .gl-step-icon { background: var(--gl-green-tint); color: var(--gl-green-strong); }\n.gl-step-2 .gl-step-icon svg { fill: currentColor; }\n.gl-step-copy b { display: block; font-size: 14px; font-weight: 800; }\n.gl-step-copy small { display: block; margin-top: 3px; font-size: 12px; line-height: 1.4; color: var(--gl-muted); }\n.gl-step em { position: absolute; top: 9px; right: 11px; font-style: normal; font-size: 13px; font-weight: 800; color: #b9b7d2; }\n.gl-facts { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }\n.gl-facts li { display: inline-flex; align-items: center; gap: 6px; padding: 6px 13px; border-radius: 999px; background: var(--gl-lilac); border: 2px solid var(--gl-line); font-size: 13px; font-weight: 700; color: var(--gl-muted); }\n.gl-facts b { font-size: 16px; font-weight: 800; color: var(--gl-ink); }\n.gl-intro .gl-math { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 12.5px; line-height: 1.4; color: var(--gl-muted); }\n.gl-math svg { flex-shrink: 0; color: var(--gl-purple); }\n.gl-tip { display: flex; gap: 12px; margin: 0 0 14px; padding: 14px; border-radius: 16px; background: var(--gl-purple-tint); border: 2px solid #dad3ff; color: #4a2fd1; }\n.gl-tip > svg { flex-shrink: 0; margin-top: 2px; }\n.gl-tip b { font-size: 11px; font-weight: 800; letter-spacing: .9px; text-transform: uppercase; }\n.gl-intro .gl-tip p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--gl-ink); }\n.gl-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }\n.gl-tiles > div { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 11px; align-items: center; padding: 12px; border: 2px solid var(--gl-line); border-bottom: 4px solid var(--gl-line-3d); border-radius: 16px; }\n.gl-tile-icon { grid-row: 1 / 3; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 13px; background: var(--gl-green-tint); color: var(--gl-green-strong); }\n.gl-tile-star { background: #fff4d2; }\n.gl-tiles small { font-size: 11.5px; font-weight: 700; color: var(--gl-muted); }\n.gl-tiles b { font-size: 22px; line-height: 1.1; font-weight: 800; font-variant-numeric: tabular-nums; }\n.gl-tools { list-style: none; margin: 0 0 4px; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }\n.gl-tools li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--gl-lilac); color: var(--gl-ink); }\n.gl-tools small { grid-column: 2; font-size: 11.5px; color: var(--gl-muted); }\n.gl-footer { position: sticky; bottom: 0; z-index: 4; margin-top: auto; padding: 14px 26px 22px; background: linear-gradient(#fff0, #fff 30%); }\n.gl-cta { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 56px; padding: 0 18px; border-radius: 14px; background: var(--gl-brand-strong); color: #fff; border: 2px solid var(--gl-brand-strong); border-bottom: 4px solid var(--gl-brand-edge); font-size: 17px; font-weight: 800; letter-spacing: .1px; animation: gl-ring 2.6s ease-out 1.8s infinite; }\n.gl-cta:hover { background: #e8441b; }\n.gl-cta:active { transform: translateY(2px); border-bottom-width: 2px; margin-bottom: 2px; animation: none; }\n.gl-cta:focus-visible { outline: 3px solid var(--gl-purple); outline-offset: 3px; }\n.gl-cta svg { transition: transform .2s; }\n.gl-cta:hover svg { transform: translateX(4px); }\n\n@keyframes gl-float { 50% { transform: translateY(-7px); } }\n@keyframes gl-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }\n@keyframes gl-pop-html { from { opacity: 0; transform: scale(.3); } to { opacity: 1; transform: scale(1); } }\n@keyframes gl-ring { 0% { box-shadow: 0 0 0 0 #fa4f2866; } 70%, 100% { box-shadow: 0 0 0 14px #fa4f2800; } }\n@keyframes gl-draw { to { stroke-dashoffset: 0; } }\n@keyframes gl-pop { 0% { transform: scale(0); } 60% { transform: scale(1.4); } 100% { transform: scale(1); } }\n@keyframes gl-drive { 0%, 6% { transform: translateX(130px); opacity: 0; } 12% { opacity: 1; } 68% { transform: translateX(344px); opacity: 1; } 76%, 100% { transform: translateX(344px); opacity: 0; } }\n@keyframes gl-star { 0%, 66% { transform: scale(0); } 72% { transform: scale(1.5); } 78%, 90% { transform: scale(1); } 97%, 100% { transform: scale(0); } }\n@keyframes gl-drift { to { transform: translateX(28px); } }\n@keyframes gl-wave { to { transform: translateX(-72px); } }\n.gl-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: gl-draw .55s cubic-bezier(.3, .7, .3, 1) var(--d, 0s) forwards; }\n.gl-pop { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: gl-pop .45s ease-out var(--d, 0s) forwards; }\n.gl-truck { opacity: 0; animation: gl-drive 6.5s ease-in-out 3s infinite; }\n.gl-star { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: gl-star 6.5s ease-out calc(3s + var(--s, 0s)) infinite; }\n.gl-cloud-a { animation: gl-drift 7s ease-in-out infinite alternate; }\n.gl-cloud-b { animation: gl-drift 9s ease-in-out -3s infinite alternate-reverse; }\n.gl-wave { animation: gl-wave 3.2s linear infinite; }\n.gl-sun { transform-box: fill-box; transform-origin: center; animation: gl-pop .6s ease-out both; }\n@media (prefers-reduced-motion: reduce) {\n  .gl-draw { stroke-dashoffset: 0; animation: none; }\n  .gl-pop, .gl-sun { transform: none; animation: none; }\n  .gl-truck { opacity: 1; transform: translateX(230px); animation: none; }\n  .gl-star { transform: scale(1); animation: none; }\n  .gl-robot, .gl-float, .gl-cloud, .gl-wave, .gl-step, .gl-cta { animation: none; }\n}\n\n@media (max-width: 560px) {\n  .gl-hero { height: 150px; }\n  .gl-intro-level .gl-hero { height: 112px; }\n  .gl-body { padding: 30px 18px 4px; }\n  .gl-intro .gl-body h2 { font-size: 27px; }\n  .gl-intro .gl-lead { font-size: 14px; margin-bottom: 14px; }\n  .gl-steps { grid-template-columns: 1fr; gap: 8px; }\n  .gl-step { flex-direction: row; align-items: center; padding: 10px 40px 10px 10px; gap: 12px; }\n  .gl-step-icon { width: 38px; height: 38px; flex-shrink: 0; }\n  .gl-step em { top: 50%; right: 14px; transform: translateY(-50%); }\n  .gl-footer { padding: 12px 18px 18px; }\n  .gl-tools { grid-template-columns: 1fr; }\n}\n@media (max-height: 820px) {\n  .gl-hero { height: 164px; }\n  .gl-intro-level .gl-hero { height: 124px; }\n  .gl-body { padding-top: 32px; }\n}\n@media (max-height: 700px) {\n  .gl-hero { height: 118px; }\n  .gl-intro-level .gl-hero { height: 96px; }\n  .gl-body { padding-top: 26px; }\n  .gl-intro .gl-lead { margin-bottom: 12px; }\n}\n@media (max-height: 520px) {\n  .gl-hero { display: none; }\n  .gl-body { padding-top: 18px; }\n  .gl-intro .gl-body h2 { font-size: 24px; margin-top: 8px; }\n  .gl-footer { padding: 8px 18px 12px; }\n  .gl-cta { min-height: 48px; }\n}\n\n/* ===== Save status (GameLab contract §7) ===== */\n.save-chip-group { display: flex; align-items: center; gap: 6px; margin-right: 6px; min-width: 0; }\n.save-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; max-width: 230px; padding: 0 13px; border-radius: 11px; border: 1px solid #dce3d6; background: #f4f6ee; color: #365743; font-size: 12px; font-weight: 650; }\n.save-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.save-chip.is-error { background: #fdeee9; border-color: #f0b9a8; color: #a3300f; }\n.save-chip.is-queued, .save-chip.is-saving, .save-chip.is-idle { background: #fff4df; border-color: #ecd49a; color: #80552b; }\n.save-chip.is-saved { background: #e6f6eb; border-color: #b6e0c3; color: #1f7a3a; }\n.save-icon { flex-shrink: 0; }\n.save-icon.is-saving { animation: bm-spin 1s linear infinite; }\n@keyframes bm-spin { to { transform: rotate(360deg); } }\n.save-retry { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 13px; border-radius: 11px; background: #245d45; color: #fffbed; font-size: 12px; font-weight: 700; white-space: nowrap; }\n.save-retry:hover { background: #347354; }\n.save-line { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin: -6px 0 16px; font-size: 11px; font-weight: 650; color: #6b7871; }\n.save-line.is-error { color: #a3300f; }\n.save-line.is-queued, .save-line.is-saving, .save-line.is-idle { color: #80552b; }\n.save-line.is-saved { color: #1f7a3a; }\n.save-line .save-retry { min-height: 40px; }\n.save-modal { width: min(500px, 100%); }\n.save-list { list-style: none; margin: 16px 0; padding: 0; display: grid; gap: 8px; max-height: min(320px, 42vh); overflow: auto; text-align: left; }\n.save-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 11px 13px; border: 1px solid #e0e6d6; border-radius: 12px; background: #f7f8ef; }\n.save-list b { font-size: 12px; }\n.save-list small { margin-left: auto; font-size: 10px; color: #7a886d; }\n.save-state { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #6b7871; }\n.save-state.is-error { color: #a3300f; } .save-state.is-saved { color: #1f7a3a; }\n.save-state.is-queued, .save-state.is-saving, .save-state.is-idle { color: #80552b; }\n.save-list .save-retry { margin-left: auto; min-height: 40px; }\n@media (max-width: 760px) {\n  .save-chip span { display: none; }\n  .save-chip { min-width: 44px; padding: 0; justify-content: center; }\n  .save-retry { font-size: 0; gap: 0; min-width: 44px; padding: 0; }\n  .save-list .save-retry, .save-line .save-retry { font-size: 12px; gap: 6px; padding: 0 13px; }\n}\n/* Inside GameLab the platform shell already carries the brand; give the save status the room on phones. */\n@media (max-width: 560px) {\n  .is-gamelab .brand > span:last-child { display: none; }\n  .is-gamelab .site-header { gap: 8px; }\n  .is-gamelab .header-actions { gap: 4px; }\n}\n\n/* ===== Wide intro: two columns, bigger type — easy to read for students ===== */\n.gl-intro .gl-lead { font-size: 16px; }\n.gl-step-copy small { font-size: 12.5px; }\n@media (min-width: 880px) and (min-height: 640px) {\n  .gl-intro { width: min(1000px, 100%); }\n  .gl-hero, .gl-intro-level .gl-hero { height: 214px; }\n  .gl-body, .gl-intro-level .gl-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr); gap: 40px; align-items: start; padding: 32px 44px 10px; }\n  .gl-badge { font-size: 12.5px; padding: 6px 13px; }\n  .gl-intro .gl-body h2 { margin: 14px 0 10px; font-size: 42px; letter-spacing: -.9px; }\n  .gl-intro .gl-lead { font-size: 18px; line-height: 1.55; margin-bottom: 20px; }\n  .gl-facts li { padding: 8px 16px; font-size: 15px; }\n  .gl-facts b { font-size: 19px; }\n  .gl-intro .gl-math { font-size: 14.5px; }\n  .gl-how { margin: 0 0 12px; font-size: 14px; }\n  .gl-steps { grid-template-columns: 1fr; gap: 12px; margin: 0; }\n  .gl-step { flex-direction: row; align-items: center; gap: 16px; padding: 14px 48px 14px 14px; }\n  .gl-step-icon { width: 52px; height: 52px; flex-shrink: 0; border-radius: 15px; }\n  .gl-step-copy b { font-size: 17px; }\n  .gl-step-copy small { margin-top: 3px; font-size: 14.5px; line-height: 1.4; }\n  .gl-step em { top: 50%; right: 18px; transform: translateY(-50%); font-size: 16px; }\n  .gl-intro .gl-tip { margin: 6px 0 0; padding: 16px 18px; }\n  .gl-intro .gl-tip p { font-size: 16px; }\n  .gl-tip b { font-size: 12.5px; }\n  .gl-tiles { gap: 14px; margin-bottom: 14px; }\n  .gl-tiles > div { padding: 16px; }\n  .gl-tile-icon { width: 52px; height: 52px; }\n  .gl-tiles small { font-size: 13.5px; }\n  .gl-tiles b { font-size: 28px; }\n  .gl-tools { gap: 14px; }\n  .gl-tools li { padding: 14px 16px; font-size: 16px; }\n  .gl-tools small { font-size: 13.5px; }\n  .gl-footer { display: flex; justify-content: center; padding: 16px 44px 28px; }\n  .gl-cta { width: min(100%, 480px); min-height: 60px; font-size: 19px; }\n}\n@media (min-width: 880px) and (min-height: 640px) and (max-height: 820px) {\n  .gl-hero, .gl-intro-level .gl-hero { height: 168px; }\n  .gl-body, .gl-intro-level .gl-body { padding-top: 24px; gap: 32px; }\n  .gl-intro .gl-body h2 { font-size: 36px; margin: 10px 0 8px; }\n  .gl-intro .gl-lead { font-size: 16.5px; margin-bottom: 14px; }\n  .gl-step { padding-top: 11px; padding-bottom: 11px; }\n  .gl-footer { padding-top: 12px; padding-bottom: 22px; }\n}\n\n/* ===== Intro dialog in the game's cartoon style (wood frame, parchment, gold badge, green action) ===== */\n.gl-intro {\n  --gl-ink: var(--ink-brown); --gl-muted: #7a5230; --gl-line: var(--wood-edge); --gl-line-3d: var(--wood-edge); --gl-lilac: var(--paper-2);\n  background: var(--paper); color: var(--ink-brown);\n  border: 4px solid var(--wood-edge); border-bottom-width: 8px; border-radius: 30px;\n  font-family: Nunito, \"Trebuchet MS\", \"Segoe UI Rounded\", \"Segoe UI\", system-ui, sans-serif;\n  box-shadow: 0 26px 70px #1a2b5a66;\n}\n.gl-hero { border-radius: 24px 24px 0 0; border-bottom: 4px solid var(--wood-edge); background: linear-gradient(#7fd0ff, #e3f6ff); }\n.gl-badge { color: var(--ink-brown); background: var(--gold); border: 2px solid var(--wood-edge); box-shadow: 0 3px 0 var(--gold-edge); font-weight: 900; }\n.gl-badge svg { fill: var(--ink-brown); stroke: var(--ink-brown); }\n.gl-intro .gl-body h2 { color: var(--ink-brown); font-weight: 900; }\n.gl-intro .gl-lead { color: #7a5230; font-weight: 700; }\n.gl-how { color: #e0501f; font-weight: 900; }\n.gl-step { background: #fff8e3; border: 3px solid var(--wood-edge); border-bottom-width: 6px; border-radius: 18px; }\n.gl-step-icon, .gl-step-1 .gl-step-icon, .gl-step-2 .gl-step-icon { color: #fff; border: 2px solid var(--wood-edge); border-radius: 50%; }\n.gl-step-icon { background: #5d6b7a; }\n.gl-step-1 .gl-step-icon { background: var(--steel); }\n.gl-step-2 .gl-step-icon { background: var(--good); }\n.gl-step-copy b { color: var(--ink-brown); font-weight: 900; }\n.gl-step-copy small { color: #7a5230; font-weight: 700; }\n.gl-step em { display: grid; place-items: center; width: 26px; height: 26px; font-size: 13px; font-weight: 900; color: var(--ink-brown); background: var(--gold); border: 2px solid var(--wood-edge); border-radius: 50%; }\n.gl-facts li { color: #ffe9b6; background: var(--wood-dark); border: 2px solid var(--wood-edge); font-weight: 900; }\n.gl-facts b { color: var(--gold); }\n.gl-intro .gl-math { color: var(--brown-soft); font-weight: 800; }\n.gl-math svg { color: #e0501f; }\n.gl-tip { color: var(--ink-brown); background: var(--paper-2); border: 3px solid var(--wood-edge); border-bottom-width: 5px; border-radius: 18px; }\n.gl-tip b { color: #e0501f; font-weight: 900; }\n.gl-intro .gl-tip p { color: var(--ink-brown); font-weight: 800; }\n.gl-tiles > div { background: #fff8e3; border: 3px solid var(--wood-edge); border-bottom-width: 6px; border-radius: 18px; }\n.gl-tile-icon { color: #fff; background: var(--good); border: 2px solid var(--wood-edge); border-radius: 50%; }\n.gl-tile-star { background: var(--gold); }\n.gl-tiles small { color: var(--brown-soft); font-weight: 800; }\n.gl-tiles b { color: var(--ink-brown); font-weight: 900; }\n.gl-tools li { color: var(--ink-brown); background: var(--paper-2); border: 2px solid var(--wood-edge); border-radius: 14px; font-weight: 900; }\n.gl-tools small { color: var(--brown-soft); font-weight: 700; }\n.gl-footer { background: linear-gradient(#fff3d100, var(--paper) 35%); }\n.gl-cta { color: #fff; text-shadow: 0 2px 0 var(--good-edge); background: linear-gradient(180deg, #74e374, #33b04e); border: 3px solid var(--good-edge); border-bottom-width: 7px; border-radius: 20px;\n  box-shadow: inset 0 2px 0 #ffffff66, 0 8px 14px #1a2b5a40; animation: bm-cta 2.2s ease-in-out infinite; }\n.gl-cta:hover { background: linear-gradient(180deg, #82ee82, #3bbb56); }\n.gl-cta:active { transform: translateY(2px); border-bottom-width: 4px; margin-bottom: 0; animation: none; }\n.gl-cta:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }\n@media (prefers-reduced-motion: reduce) { .gl-cta { animation: none; } }\n\n/* ===== First-run guided tour: spotlight over the real HUD, robot card beside it ===== */\n.tour { position: absolute; inset: 0; z-index: 30; overflow: hidden; pointer-events: none; }\n.tour-block { position: absolute; pointer-events: auto; }\n.tour-dim { inset: 0; background: #1a2b5a99; }\n/* The hole is only a picture: a huge shadow darkens everything around it. Clicks are stopped by .tour-block. */\n.tour-hole { position: absolute; border-radius: 18px; border: 3px solid var(--gold); box-shadow: 0 0 0 100vmax #1a2b5a99, 0 0 22px 4px #ffd54acc, inset 0 0 14px #ffd54a99; animation: tour-hole-in .28s ease-out, tour-glow 1.5s ease-in-out .28s infinite; pointer-events: none; }\n.tour-card { position: absolute; pointer-events: auto; padding: 12px 14px 10px; border-radius: 22px; color: var(--ink-brown); background: var(--paper); border: 3px solid var(--wood-edge); border-bottom-width: 6px; box-shadow: 0 12px 24px #1a2b5a66; animation: tour-card-in .3s ease-out; }\n.tour-card::after { content: \"\"; position: absolute; left: var(--arrow); width: 18px; height: 18px; margin-left: -9px; background: var(--paper); border: solid var(--wood-edge); border-width: 0 3px 3px 0; display: none; }\n.tour-card.is-above::after { display: block; bottom: -12px; transform: rotate(45deg); }\n.tour-card.is-below::after { display: block; top: -12px; transform: rotate(225deg); }\n.tour-head { display: flex; align-items: center; gap: 10px; }\n.tour-avatar { flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%; object-fit: cover; object-position: 50% 10%; background: linear-gradient(#ffe3db, #efebff); border: 3px solid var(--wood-edge); animation: bm-bob 2.6s ease-in-out infinite; }\n.tour-title { min-width: 0; }\n.tour-title h3 { margin: 0; font-size: 19px; line-height: 1.15; font-weight: 900; }\n.tour-count { display: block; margin-bottom: 1px; font-size: 10.5px; font-weight: 900; letter-spacing: 1.3px; color: #e0501f; }\n.tour-text { margin: 8px 0 0; font-size: 15px; line-height: 1.4; font-weight: 700; }\n.tour-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }\n.tour-skip { padding: 6px 4px; font-size: 12.5px; white-space: nowrap; font-weight: 800; color: var(--brown-soft); background: transparent; text-decoration: underline; text-underline-offset: 3px; }\n.tour-skip:hover { color: var(--ink-brown); }\n.tour-next { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 14px; font-size: 16px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 var(--good-edge); background: linear-gradient(180deg, #74e374, #33b04e); border: 3px solid var(--good-edge); border-bottom-width: 6px; }\n.tour-next:hover { filter: brightness(1.07); }\n.tour-next:active { transform: translateY(2px); border-bottom-width: 4px; }\n.tour-do { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 8px 12px; border-radius: 14px; font-size: 14.5px; line-height: 1.25; font-weight: 900; background: var(--gold); border: 2px solid var(--wood-edge); box-shadow: 0 3px 0 var(--gold-edge); }\n.tour-do svg { flex-shrink: 0; fill: currentColor; animation: bm-bob 1s ease-in-out infinite; }\n.tour-dots { display: flex; justify-content: center; gap: 5px; margin-top: 8px; }\n.tour-dots i { width: 8px; height: 8px; border-radius: 50%; background: #e9cf98; border: 1.5px solid var(--wood-edge); }\n.tour-dots .past { background: var(--good); }\n.tour-dots .now { width: 20px; border-radius: 6px; background: var(--gold); }\n@keyframes tour-hole-in { from { opacity: 0; transform: scale(1.08); } }\n@keyframes tour-glow { 50% { box-shadow: 0 0 0 100vmax #1a2b5a99, 0 0 30px 8px #ffd54a, inset 0 0 18px #ffd54acc; } }\n@keyframes tour-card-in { from { opacity: 0; transform: translateY(8px) scale(.97); } }\n.tour-count.is-new { display: inline-block; padding: 1px 8px; border-radius: 999px; color: #fff; background: var(--red); letter-spacing: 1.6px; }\n.tour-foot { justify-content: flex-end; }\n.tour-skip { margin-right: auto; }\n.gl-tour-note { font-weight: 900; }\n\n/* Pictures that show what to do: example lines, glowing triangles and a pointing hand */\n.tour-art { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }\n.tour-ghost line { stroke-linecap: round; fill: none; stroke-dasharray: 1; stroke-dashoffset: 1; animation: tour-draw 2.6s ease-in-out infinite; }\n.tour-ghost-shadow { stroke: #4a2a12; stroke-width: 13; opacity: .55; }\n.tour-ghost.is-road .tour-ghost-line { stroke: #ffe08a; stroke-width: 8; }\n.tour-ghost.is-support .tour-ghost-line { stroke: #bfe3ff; stroke-width: 6; }\n.tour-shape { fill: #ffd54a55; stroke: #ffd54a; stroke-width: 4; stroke-linejoin: round; animation: tour-shape 1.6s ease-in-out infinite; }\n.tour-hand { position: absolute; z-index: 2; width: 46px; height: 58px; margin: -2px 0 0 -22px; pointer-events: none; filter: drop-shadow(0 4px 3px #1a2b5a88); transform-origin: 22px 2px; }\n.tour-hand.is-tap { animation: tour-tap 1.3s ease-in-out infinite; }\n.tour-hand.is-drag { animation: tour-drag 2.6s ease-in-out infinite; }\n@keyframes tour-draw { 0%, 12% { stroke-dashoffset: 1; opacity: 1; } 58% { stroke-dashoffset: 0; opacity: 1; } 88% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }\n@keyframes tour-shape { 50% { fill: #ffd54a99; } }\n@keyframes tour-tap { 0%, 100% { transform: translate(8px, 14px) scale(1); } 40% { transform: translate(0, 0) scale(1); } 55% { transform: translate(0, 0) scale(.88); } 70% { transform: translate(0, 0) scale(1); } }\n@keyframes tour-drag { 0%, 8% { transform: translate(0, 10px) scale(1); opacity: 0; } 14% { transform: translate(0, 0) scale(1); opacity: 1; } 20% { transform: translate(0, 0) scale(.88); } 28% { transform: translate(0, 0) scale(1); } 58%, 82% { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 1; } 64% { transform: translate(var(--dx), var(--dy)) scale(.88); } 100% { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 0; } }\n@media (max-height: 560px) {\n  .tour-card { padding: 8px 12px 8px; border-radius: 18px; }\n  .tour-avatar { width: 38px; height: 38px; }\n  .tour-title h3 { font-size: 16px; }\n  .tour-text { margin-top: 4px; font-size: 13px; line-height: 1.3; }\n  .tour-foot { margin-top: 6px; }\n  .tour-next { min-height: 38px; font-size: 14px; }\n  .tour-dots { display: none; }\n}\n@media (prefers-reduced-motion: reduce) { .tour-hole, .tour-card, .tour-avatar, .tour-shape, .tour-do svg { animation: none; } .tour-ghost line { animation: none; stroke-dashoffset: 0; } .tour-hand { animation: none !important; } }\n";
+// src/games/bridge-master/styles/page-reset.css?inline
+var page_reset_default = "/* Page-level reset for the standalone app and the legacy LMS iframe runner only.\n   The GameLab build never includes this file: it must not touch html, body or #root. */\n:root { background: #f3f2ec; }\nhtml, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }\n#root { height: 100dvh; }\n";
 // src/lms/entry.jsx
 var bridgeMasterManifest = Object.freeze({
 	contractVersion: 1,
@@ -38336,6 +42647,6 @@ var bridgeMasterManifest = Object.freeze({
 	levelIds: levels.map((level) => level.id)
 });
 function BridgeMasterLms({ styleNonce, ...props }) {
-	return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("style", { nonce: styleNonce }, bridge_master_default), /* @__PURE__ */ React.createElement(BridgeMaster, props));
+	return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("style", { nonce: styleNonce }, page_reset_default + bridge_master_default), /* @__PURE__ */ React.createElement(BridgeMaster, props));
 }
 export { bridgeMasterManifest, BridgeMasterLms as default };

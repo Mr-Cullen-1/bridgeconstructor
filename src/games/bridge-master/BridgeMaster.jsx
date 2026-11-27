@@ -8,6 +8,9 @@ import { useSimulation } from "./hooks/useSimulation.js";
 import { usePreferences } from "./hooks/usePreferences.js";
 import { useLmsEvents } from "./hooks/useLmsEvents.js";
 import { useAttemptReporting, MODE_ID } from "./hooks/useAttemptReporting.js";
+import { useOnboarding } from "./hooks/useOnboarding.js";
+import { lessonFor } from "./onboarding/steps.js";
+import Onboarding from "./components/Onboarding.jsx";
 import { getDictionary, normalizeLang, levelText } from "./i18n/index.js";
 import BridgeScene from "./components/BridgeScene.jsx";
 import GameToolbar from "./components/GameToolbar.jsx";
@@ -212,6 +215,7 @@ function Game({
     ["intro", "paused", "success", "failed"].includes(state.phase);
   // `inert` is set as a DOM attribute: React 18 ignores the boolean prop and React 19 reads "" as false.
   const shell = useRef(null);
+  const appRoot = useRef(null);
   useEffect(() => {
     shell.current?.toggleAttribute("inert", overlayOpen);
   }, [overlayOpen]);
@@ -226,6 +230,19 @@ function Game({
       ),
   );
   const tutorialTestReady = tutorial && missingRoadIndex === -1;
+  // Guided lessons: the first three levels are taught in full, a few later ones get a short note about
+  // what is new. A lesson opens once, on a level the player has not completed. A host can switch them
+  // off (`config.onboarding: false`), list lessons already seen (`config.onboardingSeen`) and is told
+  // when one ends (`config.onOnboardingDone(lessonId)`; "*" when the player skipped them all).
+  const lesson = useMemo(() => lessonFor(state.level), [state.level]);
+  const tour = useOnboarding({
+    lesson,
+    enabled: config.onboarding !== false && !scores[state.level.id],
+    seen: config.onboardingSeen,
+    ctx: { state, roadReady: missingRoadIndex === -1 },
+    onFinish: config.onOnboardingDone,
+  });
+  const tourVisible = tour.running && state.phase === "building" && !overlayOpen;
   const tutorialNodeId =
     tutorial && missingRoadIndex >= 0
       ? state.level.roadNodeIds[
@@ -257,6 +274,7 @@ function Game({
                 : t.hintFirst;
   return (
     <main
+      ref={appRoot}
       className={`bridge-app ${reporting.enabled ? "is-gamelab" : ""}`}
       lang={lang}
       tabIndex={-1}
@@ -277,7 +295,7 @@ function Game({
           reducedMotion={reducedMotion}
           hudTop={
             <>
-              <div className="hud-left">
+              <div className="hud-left" data-tour="level">
                 <button type="button" className="hud-btn hud-levels" onClick={selectLevels}>
                   <Icon name="grid" />
                   <span>{t.levels}</span>
@@ -304,7 +322,7 @@ function Game({
                   </div>
                 </div>
               </div>
-              <div className="hud-center">
+              <div className="hud-center" data-tour="budget">
                 <div className={`budget ${materialLeft <= state.level.budget * 0.15 ? "is-low" : ""}`} aria-label={t.materialLabel}>
                   <div className="budget-main">
                     <span className="budget-label">
@@ -328,7 +346,7 @@ function Game({
                   {t.target}: ≤ {state.level.parBudget}
                 </span>
               </div>
-              <div className="hud-right">
+              <div className="hud-right" data-tour="controls">
                 {reporting.enabled && (
                   <SaveChip
                     attempts={reporting.attempts}
@@ -386,7 +404,21 @@ function Game({
           levelIndex={levelIndex}
           total={levels.length}
           levelHint={levelHint}
+          tour={tour.running && state.level.difficulty === 1}
           onStart={() => dispatch({ type: "START_BUILDING" })}
+        />
+      )}
+      {tourVisible && (
+        <Onboarding
+          rootRef={appRoot}
+          lessonId={lesson.id}
+          fresh={lesson.fresh}
+          step={tour.step}
+          index={tour.index}
+          total={tour.total}
+          t={t}
+          onNext={tour.next}
+          onSkip={tour.skip}
         />
       )}
       {!showLevels && !showSave && !exited && state.phase === "paused" && (

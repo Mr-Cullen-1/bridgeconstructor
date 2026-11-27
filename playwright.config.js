@@ -1,4 +1,11 @@
 import { defineConfig } from "@playwright/test";
+const baseURL = process.env.BASE_URL ?? "http://127.0.0.1:5173";
+// Existing specs test the game itself, so they start as a returning player who already saw the
+// guided lessons (the standalone app keeps that list in localStorage). onboarding.spec.js starts fresh.
+export const returningPlayer = {
+  cookies: [],
+  origins: [{ origin: new URL(baseURL).origin, localStorage: [{ name: "bridge-master:onboarding:v2", value: JSON.stringify(["*"]) }] }],
+};
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
@@ -7,7 +14,8 @@ export default defineConfig({
   expect: { timeout: 12000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: process.env.BASE_URL ?? "http://127.0.0.1:5173",
+    baseURL,
+    storageState: returningPlayer,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     reducedMotion: "reduce",
@@ -21,7 +29,7 @@ export default defineConfig({
   projects: [
     {
       name: "desktop-chrome",
-      testMatch: ["gameplay.spec.js", "viewport.spec.js", "design.spec.js"],
+      testMatch: ["gameplay.spec.js", "viewport.spec.js", "design.spec.js", "onboarding.spec.js"],
       use: {
         browserName: "chromium",
         channel: "chrome",
@@ -30,7 +38,7 @@ export default defineConfig({
     },
     {
       name: "mobile-chrome",
-      testMatch: "mobile.spec.js",
+      testMatch: ["mobile.spec.js", "onboarding.spec.js"],
       use: {
         browserName: "chromium",
         channel: "chrome",
