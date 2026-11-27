@@ -102,3 +102,32 @@ it("pause freezes active time and resumes the previous phase", () => {
   expect(s.phase).toBe("testing");
   expect(act(s, "TICK", { ms: 1000 }).activeMs).toBe(1000);
 });
+it("redo puts back what undo took away, step by step, and building anything new clears it", () => {
+  let s = built();
+  expect(s.future).toEqual([]);
+  s = act(act(s, "UNDO"), "UNDO");
+  expect(s.playerEdges).toHaveLength(2);
+  expect(s.future).toHaveLength(2);
+  s = act(s, "REDO");
+  expect(s.playerEdges.map((e) => e.id)).toEqual(built().playerEdges.slice(0, 3).map((e) => e.id));
+  expect(s.future).toHaveLength(1);
+  s = act(s, "REDO");
+  expect(s.playerEdges).toHaveLength(4);
+  expect(act(s, "REDO")).toMatchObject({ playerEdges: s.playerEdges, future: [] }); // nothing left to redo
+  // Undo, then build something different: the old future is gone.
+  let t = act(built(), "UNDO");
+  expect(t.future).toHaveLength(1);
+  t = connect(t, "d", "e");
+  expect(t.future).toEqual([]);
+  // Removing a segment also clears it, and redo can undo a removal.
+  let u = act(built(), "UNDO");
+  u = act(u, "SELECT_EDGE", { edgeId: u.playerEdges[0].id });
+  u = act(u, "REMOVE_EDGE");
+  expect(u.future).toEqual([]);
+  const removed = act(act(u, "UNDO"), "REDO");
+  expect(removed.playerEdges).toHaveLength(2);
+});
+it("redo does nothing outside building", () => {
+  const s = act(initialState(level, "session-1"), "REDO");
+  expect(s.playerEdges).toEqual([]);
+});

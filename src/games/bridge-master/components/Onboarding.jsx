@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { placeCard } from "../onboarding/placement.js";
-import { robotWave } from "../assets/introAssets.js";
-import Icon from "./Icon.jsx";
+import Mascot from "./Mascot.jsx";
+import PackIcon from "./PackIcon.jsx";
 
 const PAD = 8;
 const round = Math.round;
@@ -100,8 +100,14 @@ export default function Onboarding({ rootRef, lessonId, fresh, step, index, tota
   const { hole, card, view, lines, shapes, hand } = useLayout(rootRef, cardRef, step);
   const copy = t.tour.lessons?.[lessonId]?.[step.id];
   const action = step.kind === "action";
-  const width = Math.min(360, Math.max(240, view.w - 24));
-  const place = card && view.w ? placeCard(hole, { w: width, h: card.h }, view) : null;
+  // Short screens get tighter spacing. When the spotlight is so tall that no room is left above or below
+  // it (a landscape phone, the F support), the card becomes narrower and stands beside it.
+  const tight = view.h > 0 && view.h < 460;
+  const roomSide = hole ? Math.max(hole.x, view.w - (hole.x + hole.w)) - 6 : 0;
+  const roomVertical = hole ? Math.max(hole.y, view.h - (hole.y + hole.h)) - 6 : view.h;
+  const beside = tight && hole && roomVertical < 170 && roomSide >= 170;
+  const width = beside ? Math.min(300, roomSide - 12) : Math.min(360, Math.max(240, view.w - 24));
+  const place = card && view.w ? placeCard(hole, { w: width, h: card.h }, view, tight ? { gap: 8, margin: 6 } : undefined) : null;
 
   // Keyboard players land on the button that moves the tour forward.
   useEffect(() => {
@@ -154,7 +160,7 @@ export default function Onboarding({ rootRef, lessonId, fresh, step, index, tota
         style={{ width, left: place?.left ?? 0, top: place?.top ?? 0, opacity: place ? 1 : 0, "--arrow": `${place?.arrow ?? 0}px` }}
       >
         <header className="tour-head">
-          <img className="tour-avatar" src={robotWave} alt="" width="52" height="52" />
+          <Mascot pose={action ? "point" : "explain"} className="tour-avatar" />
           <div className="tour-title">
             <span className={`tour-count ${fresh ? "is-new" : ""}`}>{fresh ? t.tour.fresh : t.tour.stepOf(index + 1, total)}</span>
             <h3>{copy.title}</h3>
@@ -163,7 +169,7 @@ export default function Onboarding({ rootRef, lessonId, fresh, step, index, tota
         <p className="tour-text">{copy.text}</p>
         {action && (
           <p className="tour-do">
-            <Icon name="play" size={14} />
+            <PackIcon name="play" size={20} />
             {copy.cta}
           </p>
         )}
@@ -174,7 +180,7 @@ export default function Onboarding({ rootRef, lessonId, fresh, step, index, tota
           {!action && (
             <button type="button" ref={nextRef} className="tour-next" onClick={onNext}>
               {t.tour.next}
-              <Icon name="arrow" size={18} />
+              <PackIcon name="arrow-right" size={20} />
             </button>
           )}
         </footer>

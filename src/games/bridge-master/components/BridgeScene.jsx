@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { canConnectNodes } from "../engine/buildRules.js";
-import { createCamera, projectNode } from "../scene/camera.js";
-import { createWorld } from "../scene/world.js";
+import { getEdgeKey } from "../engine/graph.js";
+import { createView, projectNode } from "../scene/view.js";
+import { createScene } from "../scene/scene2d.js";
+import { svg } from "../assets/design/index.js";
 
 export default function BridgeScene({
   state,
@@ -22,24 +24,25 @@ export default function BridgeScene({
     canvas = useRef(null),
     world = useRef(null),
     frame = useRef({}),
-    drag = useRef(null),
     topRef = useRef(null),
     bottomRef = useRef(null),
     previousEdges = useRef(null),
     projectedRef = useRef(null);
   const [size, setSize] = useState({ width: 800, height: 470 });
   const [insets, setInsets] = useState({ top: 0, bottom: 0 });
-  const [view, setView] = useState("depth"),
-    [yaw, setYaw] = useState(0.12),
-    [hover, setHover] = useState(null),
+  const [hover, setHover] = useState(null),
+
     [pops, setPops] = useState([]);
-  const [ready, setReady] = useState(false),
-    [unavailable, setUnavailable] = useState(false);
+  const [ready, setReady] = useState(false);
   const camera = useMemo(
-    () => createCamera(size.width, size.height, view, yaw, insets),
-    [size, view, yaw, insets],
+    () => createView(size.width, size.height, insets),
+    [size, insets],
   );
   const { level } = state;
+  // Compact markers that follow the scale of the scene (40 px on desktop, ~32 px on phones). Only the
+  // picture shrinks: the invisible touch target keeps a 48 px diameter.
+  const nodeSize = Math.round(Math.max(30, Math.min(40, 24 + 16 * camera.k)));
+  const tag = Math.round(nodeSize * 0.64);
   const locked = state.phase !== "building";
   const selected = level.nodes.find((n) => n.id === state.selectedNodeId);
   const target = level.nodes.find((n) => n.id === hover);
@@ -55,7 +58,7 @@ export default function BridgeScene({
     [selected, target, level, edges, state.activeEdgeType],
   );
   const projected = new Map(
-    level.nodes.map((n) => [n.id, projectNode(n, camera, size.width, size.height)]),
+    level.nodes.map((n) => [n.id, projectNode(n, camera)]),
   );
 
   useEffect(() => {
@@ -87,27 +90,9 @@ export default function BridgeScene({
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
-    if (typeof WebGL2RenderingContext === "undefined") {
-      setUnavailable(true);
-      return;
-    }
-    const element = canvas.current;
-    function lost(event) {
-      event.preventDefault();
-      setUnavailable(true);
-      setReady(false);
-    }
-    try {
-      world.current = createWorld(element, level);
-      setReady(true);
-      setUnavailable(false);
-      element.addEventListener("webglcontextlost", lost);
-    } catch {
-      setReady(false);
-      setUnavailable(true);
-    }
+    world.current = createScene(canvas.current, level);
+    setReady(true);
     return () => {
-      element.removeEventListener("webglcontextlost", lost);
       world.current?.dispose();
       world.current = null;
     };
@@ -185,10 +170,6 @@ export default function BridgeScene({
     return () => clearTimeout(timer);
   }, [pops]);
 
-  function setCamera(next) {
-    setView(next);
-    setYaw(next === "front" ? 0 : 0.12);
-  }
   function activateNode(nodeId) {
     if (!locked) dispatch({ type: "SELECT_NODE", nodeId });
   }
@@ -198,35 +179,21 @@ export default function BridgeScene({
       ref={container}
       style={{ "--inset-top": `${insets.top}px`, "--inset-bottom": `${insets.bottom}px` }}
     >
-      <canvas
-        ref={canvas}
-        className="world-canvas"
-        data-renderer={ready ? "webgl" : "pending"}
-        aria-hidden="true"
-      />
+      <div ref={canvas} className="world-canvas" data-renderer={ready ? "layered" : "pending"} aria-hidden="true" />
       <div className="scene-vignette" aria-hidden="true" />
       <svg
         className="bridge-scene scene-hitlayer"
         viewBox={`0 0 ${size.width} ${size.height}`}
         aria-label={t.collection}
-        onPointerDown={(event) => {
-          if (event.target.closest('[role="button"]')) return;
-          drag.current = { x: event.clientX, yaw };
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerMove={(event) => {
-          if (drag.current)
-            setYaw(
-              Math.max(-0.35, Math.min(0.35, drag.current.yaw + (event.clientX - drag.current.x) / 600)),
-            );
-        }}
-        onPointerUp={() => {
-          drag.current = null;
-        }}
-        onPointerCancel={() => {
-          drag.current = null;
-        }}
       >
+        {!locked &&
+          level.roadNodeIds.slice(1).map((id, i) => {
+            const from = level.roadNodeIds[i];
+            if (edges.some((e) => e.id === getEdgeKey(from, id))) return null;
+            const a = projected.get(from),
+              b = projected.get(id);
+            return <line key={`guide-${from}-${id}`} className="road-guide" x1={a.x} y1={a.y} x2={b.x} y2={b.y} />;
+          })}
         {edges
           .filter((e) => e.isPlayerBuilt)
           .map((edge) => {
@@ -274,6 +241,8 @@ export default function BridgeScene({
           const p = projected.get(node.id),
             active = state.selectedNodeId === node.id,
             cue = tutorialNodeId === node.id;
+          const hovered = preview?.b.id === node.id;
+          const skin = active || cue ? "node-selected" : hovered ? (preview.ok ? "node-valid" : "node-invalid") : node.type === "anchor" ? "node-anchor" : "node-idle";
           return (
             <g
               key={node.id}
@@ -297,30 +266,21 @@ export default function BridgeScene({
                 }
               }}
             >
-              <circle cx={p.x} cy={p.y} r="22" fill="transparent" />
-              {(active || cue) && !locked && (
-                <circle className="node-ring" cx={p.x} cy={p.y} r="17" fill="none" stroke={active ? "#ffd54a" : "#ffffff"} strokeWidth="3" />
-              )}
-              <circle
-                className="node-halo"
-                cx={p.x}
-                cy={p.y}
-                r="15"
-                fill={active ? "#ffd54a66" : "#ffffff33"}
-                stroke={active || cue ? "#ffd54a" : "#ffffffcc"}
-                strokeWidth={active || cue ? 3 : 2}
+              <circle cx={p.x} cy={p.y} r="24" fill="transparent" />
+              {(active || cue) && !locked && <circle className="node-ring" cx={p.x} cy={p.y} r={nodeSize * 0.42} fill="none" stroke={active ? "#43eaff" : "#ffffff"} strokeWidth="2.5" />}
+              <image
+                className={`node-skin ${cue ? "node-cue" : ""}`}
+                href={svg(skin)}
+                x={p.x - nodeSize / 2}
+                y={p.y - nodeSize / 2}
+                width={nodeSize}
+                height={nodeSize}
+                pointerEvents="none"
               />
-              <circle
-                className="node-core"
-                cx={p.x}
-                cy={p.y}
-                r={node.type === "anchor" ? 8.5 : 7.5}
-                fill={active ? "#ffd54a" : node.type === "anchor" ? "#ffe9a3" : "#ffffff"}
-                stroke="#5b351a"
-                strokeWidth="3.5"
-              />
-              {cue && <path d={`M${p.x - 6} ${p.y - 32}l6 6 6-6`} fill="none" stroke="#ffd54a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
-              <text className="node-label" x={p.x} y={p.y + 33} textAnchor="middle" pointerEvents="none">
+              <circle className="node-core" cx={p.x} cy={p.y} r="6" fill="transparent" pointerEvents="none" />
+              {cue && <path d={`M${p.x - 5} ${p.y - nodeSize * 0.62 - 8}l5 5 5-5`} fill="none" stroke="#ffc736" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
+              <image href={svg("node-label")} x={p.x - tag / 2} y={p.y + nodeSize * 0.5 - 1} width={tag} height={tag * 1.07} pointerEvents="none" />
+              <text className="node-label" x={p.x} y={p.y + nodeSize * 0.5 - 1 + (tag * 1.07) / 2} fontSize={Math.round(tag * 0.52)} textAnchor="middle" dominantBaseline="central" pointerEvents="none">
                 {node.id.toUpperCase()}
               </text>
             </g>
@@ -332,29 +292,12 @@ export default function BridgeScene({
           {pop.text}
         </span>
       ))}
-      <div className="scene-status">
-        <span className={`status-dot ${state.phase === "testing" ? "live" : ""}`} />
-        {state.phase === "testing" ? t.testing : t.building}
-      </div>
-      <div className="camera-controls" aria-label={t.camera} data-tour="camera">
-        <button aria-label={t.depthView} aria-pressed={view === "depth"} onClick={() => setCamera("depth")}>
-          3D
-        </button>
-        <button aria-label={t.frontView} aria-pressed={view === "front"} onClick={() => setCamera("front")}>
-          {t.frontShort}
-        </button>
-      </div>
       <div className="hud-top" ref={topRef}>
         {hudTop}
       </div>
       <div className="hud-bottom" ref={bottomRef}>
         {hudBottom}
       </div>
-      {unavailable && (
-        <div className="webgl-error" role="alert">
-          {t.webglError}
-        </div>
-      )}
       {countdown > 0 && (
         <div className="countdown" aria-live="polite">
           <span key={countdown}>{countdown}</span>

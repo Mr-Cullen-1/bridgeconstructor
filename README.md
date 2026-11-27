@@ -1,10 +1,10 @@
 # Bridge Master
 
-Junior IT Academy GameLab uchun React + Three.js asosidagi lokal ko‘prik qurish o‘yini. Haqiqiy 3D landshaft, ko‘prik va avtomobil; 2D boshqaruv va accessible SVG hit-targetlar. 20 ta bosqich, road/support qurilishi, material byudjeti, undo/delete/reset va deterministik ko‘prik tekshiruvi mavjud.
+Junior IT Academy GameLab uchun React asosidagi ko‘prik qurish o‘yini. Dunyo — «Junior Bridge Constructor» dizayn paketidan olingan qatlamli 2D (2.5D) illustratsiya: osmon, tog‘lar, daryo, qoyalar, daraxtlar, yo‘l, yuk mashinasi va robot; boshqaruv — paketning SVG panellari va tugmalari; nuqtalar accessible SVG hit-targetlar. 20 ta bosqich, road/support qurilishi, material byudjeti, undo/redo/delete va deterministik ko‘prik tekshiruvi mavjud. WebGL va Three.js kerak emas.
 
-Interfeys butun viewportga moslashadi: o‘yin, boshqaruv va asosiy modallar uchun sahifa scrolli kerak emas. `3D` / `Old` tugmalari kamerani almashtiradi; sahnaning bo‘sh joyini tortish orqali ko‘rish burchagini o‘zgartirish mumkin. Mobil qurilmada ham nuqtalar ketma-ket tap bilan ulanadi.
+Interfeys butun viewportga moslashadi: o‘yin, boshqaruv va asosiy modallar uchun sahifa scrolli kerak emas. Mobil qurilmada ham nuqtalar ketma-ket tap bilan ulanadi.
 
-“Quruvchilar ustaxonasi” dizayni: iliq oq fon, yashil boshqaruvlar va sariq aksentlar. Desktopda material va asboblar chap panelda, katta 3D maydon o‘ngda; telefonda boshqaruvlar sahna ostida. Qolgan material, joriy bosqich, erishilgan yulduzlar va keyingi qadam haqiqiy o‘yin holatidan ko‘rsatiladi. Kirish, tanaffus, natija va bosqich tanlash oynalari bir xil uslubda. [2026-11-16 UI tekshiruvi](docs/qa/workshop-ui-2026-11-16.md).
+Dizayn: to‘q indigo shisha panellar, oltin/yashil aksentlar, robot-maskot (pozalar holatga qarab o‘zgaradi). Yuqorida bosqich, material, qurilish rejimi, ovoz va pauza; pastda robot maslahati va asboblar paneli (Yo‘l/Tayanch, Bekor/O‘chirish/Qayta, Sinash). Qolgan material, joriy bosqich, erishilgan yulduzlar va keyingi qadam haqiqiy o‘yin holatidan ko‘rsatiladi. Kirish, tanaffus, natija va bosqich tanlash oynalari bir xil uslubda. [2026-11-16 UI tekshiruvi](docs/qa/workshop-ui-2026-11-16.md).
 
 ## Ishga tushirish
 
@@ -33,7 +33,7 @@ E2E konfiguratsiyasi o‘rnatilgan **Google Chrome** va **Microsoft Edge** bilan
 3. Keyingi bosqichlarda `Tayanch` rejimida yuqoridagi nuqtalar orqali mustahkam konstruksiya yarating.
 4. Istalgan paytda `Ko‘prikni sinash`ni bosing — bo‘sh, chala yoki tayanchsiz ko‘prik ham sinaladi. Yo‘l uzilgan bo‘lsa mashina mavjud yo‘l oxirida yiqiladi; natijadan keyin qurilishni saqlagan holda tuzatib, qayta urinishingiz mumkin.
 
-Klaviatura: **Tab** fokus, **Enter/Space** tanlash, **Esc** tanlovni bekor qilish, **Delete/Backspace** tanlangan kesmani o‘chirish, **Ctrl/Cmd+Z** undo. Touch ham ikki marta ketma-ket nuqta tanlash orqali ishlaydi; drag shart emas.
+Klaviatura: **Tab** fokus, **Enter/Space** tanlash, **Esc** tanlovni bekor qilish, **Delete/Backspace** tanlangan kesmani o‘chirish, **Ctrl/Cmd+Z** undo, **Ctrl/Cmd+Y** (yoki Ctrl+Shift+Z) redo. Touch ham ikki marta ketma-ket nuqta tanlash orqali ishlaydi; drag shart emas.
 
 **Ko‘rsatma (onboarding).** Kirish oynasidan keyin birinchi marta o‘ynaganda robot haqiqiy tugmalar va nuqtalar ustida spotlight bilan o‘rgatadi: qo‘l ko‘rsatkichi, chizilib ko‘rsatiladigan namuna chiziqlar va tugma nomi bilan vazifa («A nuqtani bosing», «Ko‘prikni sinash» tugmasini bosing). Dars bosqichga bog‘langan (`onboarding/steps.js`): 1–3-bosqichlar to‘liq (nuqtalar → yo‘l → tayanch → uchburchak → sinash), 4, 7, 10, 12, 17-bosqichlarda esa nima yangi ekani haqida qisqa «YANGI!» eslatma. Dars faqat shu bosqich hali yakunlanmagan bo‘lsa va ko‘rilmagan bo‘lsa ochiladi; «O‘tkazib yuborish» barcha darslarni o‘chiradi. O‘yin brauzer xotirasiga yozmaydi (GameLab eksporti `localStorage`ni taqiqlaydi): ko‘rilgan darslarni host saqlaydi — `config.onboardingSeen` (dars id’lari, `"*"` = hammasi), `config.onOnboardingDone(lessonId)`, butunlay o‘chirish uchun `config.onboarding: false`. Standalone ilova (`src/App.jsx`) buni `localStorage`da saqlaydi; `?tour` hamma darsni qayta ko‘rsatadi. Testlar: `tests/e2e/onboarding.spec.js`.
 
@@ -44,7 +44,8 @@ Pause va yashirin browser tab vaqtni/animatsiyani to‘xtatadi. Sound dastlab o�
 - `src/games/bridge-master/engine/` — React/DOMsiz graph, build rules, narx, stability, simulation, scoring va reducer.
 - `levels/bridge-01.json` … `bridge-20.json` — koordinatalar, budget, cheklovlar va thresholdlar.
 - `components/` — canvas lifecycle, kameraga mos accessible SVG input, boshqaruv va modallar.
-- `scene/` — Three.js world, 3D material/geometriya, yoritish/soya, animatsiya va kamera proyeksiyasi; barcha assetlar lokal procedural geometriya.
+- `scene/` — qatlamli 2D sahna (`scene2d.js`), stage↔ekran geometriyasi (`view.js`) va ovoz sintezi.
+- `assets/design/` — dizayn paketidan generatsiya qilingan WebP/SVG assetlar (`index.js` ularni nomi bilan beradi).
 - `hooks/` — input, o‘yin holati, RAF lifecycle, preferences va LMS eventlari.
 - `i18n/uz.js` — interfeys matnlari; level nomlari level konfiguratsiyasida.
 - `adapters/` — xavfsiz callback adapteri va lokal mock event log.
@@ -56,7 +57,9 @@ Stability: `clamp(wC*C + wT*T - wU*U - wV*V, 0, 1)`; natija 6 kasrga yaxlitlanad
 
 Bu **o‘yin modeli**, haqiqiy ko‘prikning muhandislik xavfsizligini hisoblaydigan simulyator emas. Natija oldindan hisoblanadi; vizual animatsiya natijani o‘zgartirmaydi.
 
-3D sahna uchun WebGL2 kerak. WebGL konteksti yo‘qolsa interfeys qayta yuklashni so‘raydi; avtomatik context recovery hali qo‘shilmagan. Reduced motionda ambient suv/bulut animatsiyasi o‘chadi; mashinaning sinov natijasi saqlanadi. Three.js sabab production JS paketi oldingi SVG versiyadan kattaroq; o‘lchami va tekshiruv dalillari QA hujjatida.
+Sahna DOM va CSS orqali chiziladi (`src/games/bridge-master/scene/scene2d.js`): qatlamlar (fon plitasi, suv, qirg‘oq plitalari, daraxtlar, yo‘l, ko‘prik, mashina, zarrachalar) 1600×900 «stage»da turadi va ko‘prik HUD orasidagi bo‘sh joyga sig‘ishi uchun masshtablanadi (`scene/view.js`). Reduced motionda bulut/suv animatsiyasi o‘chadi; mashinaning sinov natijasi saqlanadi.
+
+**Dizayn paketi va assetlar.** Asl paket (40 MB) `design-source/` papkasida turadi va git’ga kirmaydi. `node scripts/make-design-assets.mjs` uni kesib, kichraytirib `src/games/bridge-master/assets/design/` ga (WebP + SVG, ~1.2 MB) yozadi; o‘yin ularni data URI sifatida o‘z ichiga oladi, shuning uchun LMS sandbox (`img-src data:`) va bitta-fayl eksport ishlaydi. Shrift: Nunito (GameLab hostida bor; standalone ilovada `public/nunito.woff2`).
 
 ## LMS chegarasi
 

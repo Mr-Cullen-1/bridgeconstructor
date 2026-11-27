@@ -34,3 +34,20 @@ it("shows understandable invalid build feedback", () => {
   fireEvent.click(screen.getByRole("button", { name: "Nuqta E" }));
   expect(screen.getByRole("status")).toHaveTextContent("juda uzun");
 });
+it("redo brings back an undone segment through the toolbar and Ctrl+Y", () => {
+  render(<BridgeMaster config={{ onboarding: false }} />);
+  fireEvent.click(screen.getByRole("button", { name: "Qurishni boshlash" }));
+  const redo = () => screen.getByRole("button", { name: "Bekor qilingan qadamni qaytarish" });
+  expect(redo()).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Nuqta A" }));
+  fireEvent.click(screen.getByRole("button", { name: "Nuqta B" }));
+  fireEvent.click(screen.getByRole("button", { name: "Ortga qaytarish" }));
+  expect(screen.getByLabelText("Material sarfi")).toHaveTextContent("0 / 80");
+  expect(redo()).toBeEnabled();
+  fireEvent.click(redo());
+  expect(screen.getByLabelText("Material sarfi")).toHaveTextContent("14 / 80");
+  expect(redo()).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Ortga qaytarish" }));
+  fireEvent.keyDown(screen.getByRole("main"), { key: "y", ctrlKey: true });
+  expect(screen.getByLabelText("Material sarfi")).toHaveTextContent("14 / 80");
+});

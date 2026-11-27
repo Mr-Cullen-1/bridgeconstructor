@@ -33,9 +33,9 @@ import Game, { bridgeMasterManifest } from "./BridgeMaster.jsx";
 {
   contractVersion: 1,
   gameId: "bridge-master",
-  version: "1.1.1",
+  version: "1.2.0",
   runtime: "react-19",
-  requiredCapabilities: ["webgl2"],
+  requiredCapabilities: [],
   levelIds: [
     "bridge-01", "bridge-02", "bridge-03", "bridge-04", "bridge-05",
     "bridge-06", "bridge-07", "bridge-08", "bridge-09", "bridge-10",
@@ -54,7 +54,7 @@ Manifest yordamchi metadata; server uni alohida validatsiya qiladi. Artifactning
 | Tashqi import | Faqat `react`; o‘yinning ichki modullari va Three.js fayl ichida |
 | React | Shu artifact React **19.3.1** va ReactDOM **19.3.1** bilan tekshirildi. Runner ikkalasining bir xil versiyasini pin qilsin; boshqa versiya alohida QA talab qiladi |
 | React nusxasi | Har iframe runnerida bitta React nusxasi; game va ReactDOM bir xil instance ishlatadi |
-| Brauzer imkoniyatlari | WebGL2, Canvas, requestAnimationFrame, ResizeObserver, Pointer Events, `inert`, `100dvh`, `crypto.randomUUID` |
+| Brauzer imkoniyatlari | Canvas 2D, requestAnimationFrame, ResizeObserver, Pointer Events, `inert`, `100dvh`, `crypto.randomUUID` |
 | Transport | Production HTTPS; lokal tekshiruv localhost. Oddiy LAN HTTP secure context bo‘lmasligi mumkin |
 | Ovoz | Web Audio, faqat foydalanuvchi tugma bosgandan so‘ng; ovoz ishlamasa o‘yin davom etadi |
 | Mount | Brauzerda client-side `createRoot`; o‘yinni SSR orqali render qilish talab qilinmaydi |
@@ -111,7 +111,7 @@ Inline CSS o‘yin faylining ichida, ayrim elementlarda dynamic style atributlar
 
 `connect-src 'none'` iframe ichidan API/fetch so‘rovlarini yopadi; natija parent orqali ketadi. Bu yagona himoya emas: arbitrary JSX bajariladigan kod, shuning uchun vakolatli upload, build cheklovlari, sandbox va CSP birga qo‘llanadi. `script-src` shu runtime origini bilan cheklangan qolishi kerak. [CSP sandbox](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/sandbox)
 
-Brauzer/GPU WebGL2 bera olmasa o‘yin tushunarli xabar ko‘rsatadi. Bunda LMS completed deb yozmasin. Hozir WebGL context yo‘qolsa reload so‘raladi; avtomatik context recovery yoki 2D fallback yo‘q.
+O‘yin WebGL talab qilmaydi (sahna 2D qatlamlardan chiziladi), shuning uchun GPU/WebGL xatosi yo‘q. Boshqa runtime xatolarida LMS completed deb yozmasin.
 
 ## 5. Komponent propslari
 

@@ -1,4 +1,5 @@
-import Icon from "./Icon.jsx";
+import PackIcon from "./PackIcon.jsx";
+import { svg } from "../assets/design/index.js";
 export default function GameToolbar({ state, dispatch, t, tutorialTestReady, hintId }) {
   const locked = state.phase !== "building";
   return (
@@ -15,9 +16,9 @@ export default function GameToolbar({ state, dispatch, t, tutorialTestReady, hin
             aria-pressed={state.activeEdgeType === type}
             aria-label={t[type]}
           >
-            <Icon name={type} />
+            <PackIcon name={type} />
             <span>{t[type]}<small>{t.toolDescriptions[type]}</small></span>
-            {state.activeEdgeType === type && <Icon name="check" size={15} className="material-check" />}
+            {state.activeEdgeType === type && <img className="material-check" src={svg("check-badge")} alt="" />}
           </button>
         ))}
       </div>
@@ -25,7 +26,7 @@ export default function GameToolbar({ state, dispatch, t, tutorialTestReady, hin
         {[
           ["undo", "UNDO", !state.history.length],
           ["remove", "REMOVE_EDGE", !state.selectedEdgeId],
-          ["reset", "RESET_BRIDGE", !state.playerEdges.length],
+          ["redo", "REDO", !state.future.length],
         ].map(([key, type, disabled]) => (
           <button
             key={key}
@@ -35,7 +36,7 @@ export default function GameToolbar({ state, dispatch, t, tutorialTestReady, hin
             disabled={locked || disabled}
             onClick={() => dispatch({ type })}
           >
-            <Icon name={key === "remove" ? "trash" : key} />
+            <PackIcon name={key === "remove" ? "trash" : key} />
             <span>{t.toolShort[key]}</span>
           </button>
         ))}
@@ -47,7 +48,7 @@ export default function GameToolbar({ state, dispatch, t, tutorialTestReady, hin
         disabled={locked}
         onClick={() => dispatch({ type: "START_TEST" })}
       >
-        <Icon name="play" />
+        <PackIcon name="play" />
         <span>{t.test}</span>
         <span className="keycap" aria-hidden="true">
           ↵

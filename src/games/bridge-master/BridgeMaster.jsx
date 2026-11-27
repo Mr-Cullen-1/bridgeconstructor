@@ -16,10 +16,12 @@ import BridgeScene from "./components/BridgeScene.jsx";
 import GameToolbar from "./components/GameToolbar.jsx";
 import Modal from "./components/Modal.jsx";
 import Icon from "./components/Icon.jsx";
+import PackIcon from "./components/PackIcon.jsx";
+import Mascot from "./components/Mascot.jsx";
+import { img, skinVars } from "./assets/design/index.js";
 import ResultModal from "./components/ResultModal.jsx";
 import LevelSelect from "./components/LevelSelect.jsx";
 import IntroModal from "./components/IntroModal.jsx";
-import { robotWave } from "./assets/introAssets.js";
 import { SaveChip, SaveLine, SavePanel } from "./components/SaveStatus.jsx";
 import "./styles/bridge-master.css";
 
@@ -255,6 +257,15 @@ function Game({
   const materialLeft = state.level.budget - derived.budgetUsed;
   const levelHint = t.levelHints?.[state.level.id];
   const names = levelText(state.level, t);
+  // The robot's pose follows what the player is doing (design pack: point / think / explain).
+  const pose = state.message
+    ? "explain"
+    : state.phase === "testing"
+      ? "idle"
+      : state.activeEdgeType === "support"
+        ? "think"
+        : "point";
+  const skins = useMemo(() => skinVars(), []);
   const hint = state.message
     ? [t.messages[state.message], state.message === "budget" && levelHint]
         .filter(Boolean)
@@ -276,6 +287,7 @@ function Game({
     <main
       ref={appRoot}
       className={`bridge-app ${reporting.enabled ? "is-gamelab" : ""}`}
+      style={skins}
       lang={lang}
       tabIndex={-1}
       {...input}
@@ -296,9 +308,12 @@ function Game({
           hudTop={
             <>
               <div className="hud-left" data-tour="level">
+                <button type="button" className="hud-btn hud-round hud-back" aria-label={t.leave} onClick={exitGame}>
+                  <PackIcon name="back" />
+                </button>
                 <button type="button" className="hud-btn hud-levels" onClick={selectLevels}>
-                  <Icon name="grid" />
-                  <span>{t.levels}</span>
+                  <span className="hud-levels-icon"><Icon name="grid" size={22} /></span>
+                  <span className="hud-levels-text">{t.levels}</span>
                 </button>
                 <div className="level-card">
                   <span className="level-number">{String(levelIndex + 1).padStart(2, "0")}</span>
@@ -326,7 +341,11 @@ function Game({
                 <div className={`budget ${materialLeft <= state.level.budget * 0.15 ? "is-low" : ""}`} aria-label={t.materialLabel}>
                   <div className="budget-main">
                     <span className="budget-label">
-                      <Icon name="bridge" size={18} />
+                      <span className="plank-stack" aria-hidden="true">
+                        <i />
+                        <i />
+                        <i />
+                      </span>
                       {t.material}
                     </span>
                     <strong>
@@ -334,19 +353,24 @@ function Game({
                     </strong>
                   </div>
                   <div className="budget-track">
-                    <span style={{ width: `${(derived.budgetUsed / state.level.budget) * 100}%` }} />
+                    <span style={{ width: `${(Math.max(0, materialLeft) / state.level.budget) * 100}%` }} />
                   </div>
                   <div className="budget-footnote">
                     <span>{t.remaining}</span>
                     <b>{materialLeft}</b>
                   </div>
+                  <img className="budget-logs" src={img("logs")} alt="" />
                 </div>
                 <span className="goal-target">
-                  <Icon name="star" size={15} />
+                  <PackIcon name="star" size={26} />
                   {t.target}: ≤ {state.level.parBudget}
                 </span>
               </div>
-              <div className="hud-right" data-tour="controls">
+              <div className="hud-right">
+                <span className="scene-status">
+                  <PackIcon name={state.phase === "testing" ? "play" : "tools"} size={24} className={state.phase === "testing" ? "is-live" : ""} />
+                  {state.phase === "testing" ? t.testing : t.building}
+                </span>
                 {reporting.enabled && (
                   <SaveChip
                     attempts={reporting.attempts}
@@ -356,30 +380,34 @@ function Game({
                     onOpen={openSave}
                   />
                 )}
-                <button
-                  type="button"
-                  className="hud-btn hud-round"
-                  aria-label={sound ? t.soundOff : t.soundOn}
-                  onClick={toggleSound}
-                >
-                  <Icon name={sound ? "sound" : "muted"} />
-                </button>
-                <button
-                  type="button"
-                  className="hud-btn hud-round"
-                  aria-label={t.pause}
-                  disabled={!["building", "testing"].includes(state.phase)}
-                  onClick={() => dispatch({ type: "PAUSE" })}
-                >
-                  <Icon name="pause" />
-                </button>
+                <span className="hud-buttons" data-tour="controls">
+                  <button
+                    type="button"
+                    className="hud-btn hud-round"
+                    aria-label={sound ? t.soundOff : t.soundOn}
+                    onClick={toggleSound}
+                  >
+                    <PackIcon name={sound ? "sound-on" : "sound-off"} />
+                  </button>
+                  <button
+                    type="button"
+                    className="hud-btn hud-round"
+                    aria-label={t.pause}
+                    disabled={!["building", "testing"].includes(state.phase)}
+                    onClick={() => dispatch({ type: "PAUSE" })}
+                  >
+                    <PackIcon name="pause" />
+                  </button>
+                </span>
               </div>
             </>
           }
           hudBottom={
             <>
               <div className={`hint-bar ${state.message ? "warning" : ""}`} role="status" id={hintId}>
-                <img className="hint-avatar" src={robotWave} alt="" width="52" height="52" />
+                <span className="hint-avatar-wrap">
+                  <Mascot pose={pose} className="hint-avatar" />
+                </span>
                 <span className="hint-copy">
                   <b className="hint-label">{state.message ? t.buildFeedback : t.nextStep}</b>
                   <span className="hint-text">{hint}</span>
@@ -404,7 +432,6 @@ function Game({
           levelIndex={levelIndex}
           total={levels.length}
           levelHint={levelHint}
-          tour={tour.running && state.level.difficulty === 1}
           onStart={() => dispatch({ type: "START_BUILDING" })}
         />
       )}
@@ -423,7 +450,7 @@ function Game({
       )}
       {!showLevels && !showSave && !exited && state.phase === "paused" && (
         <Modal title={t.paused} eyebrow={t.pause} className="pause-modal">
-          <span className="modal-symbol"><Icon name="pause" size={32} /></span>
+          <span className="modal-symbol"><PackIcon name="pause" size={40} /></span>
           <p>{t.pausedBody}</p>
           <div className="modal-actions">
             <button
@@ -431,7 +458,7 @@ function Game({
               onClick={() => dispatch({ type: "RESUME" })}
             >
               {t.resume}
-              <Icon name="play" />
+              <PackIcon name="play" />
             </button>
             <button className="secondary" onClick={selectLevels}>
               {t.levels}

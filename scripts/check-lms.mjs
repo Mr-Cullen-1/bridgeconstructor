@@ -21,7 +21,7 @@ const levelFiles = (await readdir(levelDirectory)).filter((name) => /^bridge-\d+
 const levelIds = await Promise.all(levelFiles.map(async (name) =>
   JSON.parse(await readFile(new URL(name, levelDirectory), "utf8")).id,
 ));
-for (const token of [...levelIds, ".bridge-app", "WebGLRenderer", "collapseEdgeIds", "Permission is hereby granted"]) {
+for (const token of [...levelIds, ".bridge-app", "sc-root", "collapseEdgeIds", "data:image/webp;base64,"]) {
   assert(source.includes(token), `Missing embedded game content/license: ${token}`);
 }
 console.log(JSON.stringify({

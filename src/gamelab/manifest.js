@@ -4,7 +4,7 @@ export const SCORE_VERSION = 1;
 export const createManifest = (levelIds) => ({
   contractVersion: 1,
   gameId: "bridge-master",
-  version: "1.2.0",
+  version: "1.3.0",
   kind: "level",
   title: { uz: "Bridge Master", ru: "Bridge Master", en: "Bridge Master" },
   languages: ["uz", "ru", "en"],
@@ -13,8 +13,8 @@ export const createManifest = (levelIds) => ({
   devices: { mobile: true, desktop: true },
   modeIds: ["default"],
   levelIds: [...levelIds],
-  requiredCapabilities: ["webgl2"],
-  dependencies: [{ name: "three", version: "0.187.0", delivery: "embedded" }],
+  requiredCapabilities: [],
+  dependencies: [],
   scoreVersion: SCORE_VERSION,
   metrics: {
     stars: { min: 0, max: 3, integer: true },

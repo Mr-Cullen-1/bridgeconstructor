@@ -6,9 +6,9 @@ import { levels } from "../games/bridge-master/levels/index.js";
 export const bridgeMasterManifest = Object.freeze({
   contractVersion: 1,
   gameId: "bridge-master",
-  version: "1.1.1",
+  version: "1.2.0",
   runtime: "react-19",
-  requiredCapabilities: ["webgl2"],
+  requiredCapabilities: [],
   levelIds: levels.map((level) => level.id),
 });
 

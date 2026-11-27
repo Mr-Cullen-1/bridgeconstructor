@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 // `custom` lets a dialog supply its own heading layout; focus trap and dialog semantics stay shared.
-export default function Modal({ title, children, className = "", eyebrow, custom = false }) {
+export default function Modal({ title, children, className = "", eyebrow, custom = false, style, backdropClassName = "", sectionRef }) {
   const ref = useRef(null);
   useEffect(() => {
     const previous = document.activeElement;
@@ -22,9 +22,13 @@ export default function Modal({ title, children, className = "", eyebrow, custom
     }
   }
   return (
-    <div className="modal-backdrop">
+    <div className={`modal-backdrop ${backdropClassName}`}>
       <section
-        ref={ref}
+        ref={(node) => {
+          ref.current = node;
+          if (sectionRef) sectionRef.current = node;
+        }}
+        style={style}
         role="dialog"
         aria-modal="true"
         aria-label={title}

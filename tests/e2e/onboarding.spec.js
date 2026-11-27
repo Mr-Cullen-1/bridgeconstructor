@@ -73,7 +73,6 @@ async function expectExample(page, lines, label) {
 test("level one is taught in full, by doing, and the lesson never returns", async ({ page, isMobile }) => {
   test.setTimeout(120000);
   await page.goto("/");
-  await expect(page.getByText(/Robot o‘yinni qadam-baqadam/)).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/onboarding-0-intro.png` });
   await start(page, isMobile);
   await expect(tour(page)).toBeVisible();
@@ -87,7 +86,7 @@ test("level one is taught in full, by doing, and the lesson never returns", asyn
   let n = 1;
   for (const [heading, targets] of infoSteps) {
     await expect(card(page)).toContainText(heading);
-    await expect(card(page)).toContainText(`${n} / 11`);
+    await expect(card(page)).toContainText(`${n} / 10`);
     await expectFramed(page, targets, heading);
     await expect(page.locator(".tour-hand")).toHaveCount(0);
     await page.screenshot({ path: `${SHOTS}/onboarding-${n}-${targets[0]}.png` });
@@ -128,17 +127,13 @@ test("level one is taught in full, by doing, and the lesson never returns", asyn
   await page.screenshot({ path: `${SHOTS}/onboarding-8-road.png` });
   await link(page, [["B", "C"], ["C", "D"], ["D", "E"]], isMobile);
 
-  await expect(card(page)).toContainText("Kamera");
-  await expectFramed(page, ["camera"], "camera");
-  await page.screenshot({ path: `${SHOTS}/onboarding-9-camera.png` });
-  await next(page, isMobile);
   await expect(card(page)).toContainText("Ovoz va tanaffus");
   await expectFramed(page, ["controls"], "controls");
   await page.screenshot({ path: `${SHOTS}/onboarding-10-controls.png` });
   await next(page, isMobile);
 
   await expect(card(page)).toContainText("Sinab ko‘ramizmi?");
-  await expect(card(page).locator(".tour-do")).toHaveText("«Ko‘prikni sinash» tugmasini bosing");
+  await expect(card(page).locator(".tour-do")).toHaveText("Yashil «Ko‘prikni sinash» tugmasini bosing");
   await expectFramed(page, ["test"], "test");
   await page.screenshot({ path: `${SHOTS}/onboarding-11-test.png` });
   await press(tool(page, "Ko‘prikni sinash"), isMobile);
@@ -147,7 +142,6 @@ test("level one is taught in full, by doing, and the lesson never returns", asyn
 
   await page.reload();
   await expect(page.getByRole("button", { name: "Qurishni boshlash" })).toBeVisible();
-  await expect(page.getByText(/Robot o‘yinni qadam-baqadam/)).toHaveCount(0);
   await start(page, isMobile);
   await expect(tour(page)).toHaveCount(0);
 });
@@ -166,7 +160,7 @@ test("level two teaches the F support: road, Support tool, three ropes, triangle
   await page.screenshot({ path: `${SHOTS}/onboarding-L2-2-road.png` });
   await link(page, [["A", "B"], ["B", "E"]], isMobile);
 
-  await expect(card(page).locator(".tour-do")).toHaveText("«Tayanch» tugmasini bosing");
+  await expect(card(page).locator(".tour-do")).toHaveText("Ko‘k «Tayanch» tugmasini bosing");
   await expectFramed(page, ["tool-support"], "L2 tool");
   await page.screenshot({ path: `${SHOTS}/onboarding-L2-3-tool.png` });
   await press(tool(page, "Tayanch"), isMobile);
@@ -181,7 +175,7 @@ test("level two teaches the F support: road, Support tool, three ropes, triangle
   await expect(page.locator(".tour-shape")).toHaveCount(2);
   await page.screenshot({ path: `${SHOTS}/onboarding-L2-5-triangles.png` });
   await next(page, isMobile);
-  await expect(card(page).locator(".tour-do")).toHaveText("«Ko‘prikni sinash» tugmasini bosing");
+  await expect(card(page).locator(".tour-do")).toHaveText("Yashil «Ko‘prikni sinash» tugmasini bosing");
   await press(tool(page, "Ko‘prikni sinash"), isMobile);
   await expect(tour(page)).toHaveCount(0);
   await expect(page.getByRole("dialog", { name: "Ajoyib ko‘prik!" })).toBeVisible();
@@ -196,7 +190,7 @@ test("level three teaches the triangle secret", async ({ page, isMobile }) => {
   await next(page, isMobile);
   await expectExample(page, [["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"]], "L3 road");
   await link(page, [["A", "B"], ["B", "C"], ["C", "D"], ["D", "E"]], isMobile);
-  await expect(card(page).locator(".tour-do")).toHaveText("«Tayanch» tugmasini bosing");
+  await expect(card(page).locator(".tour-do")).toHaveText("Ko‘k «Tayanch» tugmasini bosing");
   await press(tool(page, "Tayanch"), isMobile);
   await expect(card(page).locator(".tour-do")).toHaveText("F ni A, B, C, D va E bilan ulang");
   await expectFramed(page, ["node-a", "node-e", "node-f"], "L3 fan");

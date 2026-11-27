@@ -25,12 +25,11 @@ const seenFirst = { onboardingSeen: ["bridge-01"] };
 
 beforeEach(() => resetOnboardingMemory());
 
-it("tells a brand-new player about the tour on the intro and opens it once building starts", () => {
+it("opens the tour once building starts for a brand-new player", () => {
   render(<BridgeMaster />);
-  expect(screen.getByText(/Robot o‘yinni qadam-baqadam/)).toBeInTheDocument();
   expect(card()).toBeNull();
   start();
-  shows("1 / 11");
+  shows("1 / 10");
   shows("Ko‘prik quramiz!");
 });
 
@@ -52,9 +51,7 @@ it("teaches level one in full: it names what to press and waits until the player
   gotIt();
   shows("B–C, C–D va D–E ni ulang");
   for (const [a, b] of [["B", "C"], ["C", "D"], ["D", "E"]]) link(a, b);
-  await waitFor(() => shows("Kamera"), slow);
-  gotIt();
-  shows("Ovoz va tanaffus");
+  await waitFor(() => shows("Ovoz va tanaffus"), slow);
   gotIt();
   shows("«Ko‘prikni sinash» tugmasini bosing");
   expect(onDone).not.toHaveBeenCalled();
@@ -141,7 +138,6 @@ it("can be skipped at any step: that silences every lesson and tells the host", 
   expect(onDone).toHaveBeenCalledWith("*");
   first.unmount();
   render(<BridgeMaster />);
-  expect(screen.queryByText(/Robot o‘yinni qadam-baqadam/)).toBeNull();
   start();
   expect(card()).toBeNull();
   goToLevel(2, "Tayanch kuchi");
@@ -152,7 +148,6 @@ it("stays away when the host turns it off or the player already finished that le
   const off = render(<BridgeMaster config={{ onboarding: false }} />);
   start();
   expect(card()).toBeNull();
-  expect(screen.queryByText(/Robot o‘yinni qadam-baqadam/)).toBeNull();
   off.unmount();
   render(<BridgeMaster progress={{ completedLevelIds: ["bridge-01"], scopes: [] }} />);
   start();

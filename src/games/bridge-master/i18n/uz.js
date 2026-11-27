@@ -15,7 +15,8 @@ export const uz = {
   adventureStart: "SARGUZASHT SHU YERDAN BOSHLANADI",
   buildTools: "QURILISH ASBOBLARI",
   toolDescriptions: { road: "Mashina yurishi uchun", support: "Ko‘prikni ushlash uchun" },
-  toolShort: { undo: "Ortga", remove: "O‘chirish", reset: "Tozalash" },
+  toolShort: { undo: "Bekor", remove: "O‘chirish", redo: "Qayta" },
+  leave: "Orqaga",
   yourJourney: "HAR BOSQICH — YANGI G‘OYA.",
   previousPage: "Oldingi sahifa",
   nextPage: "Keyingi sahifa",
@@ -26,12 +27,7 @@ export const uz = {
   activeTime: "Faol vaqt",
   seconds: "soniya",
   collection: "Muhandislik sarguzashti",
-  camera: "Kamera ko‘rinishi",
   worldName: "ALP VODIYSI · QUR. SINA. KASHF ET.",
-  depthView: "3D ko‘rinish",
-  frontView: "Old ko‘rinish",
-  frontShort: "Old",
-  orbitHint: "Kamerani burish uchun bo‘sh joyni torting",
   webglError:
     "3D sahnani ochib bo‘lmadi. Brauzerda apparat tezlashtirishni yoqing va sahifani yangilang.",
   subtitle: "Har bir buyuk ko‘prik birinchi kesmadan boshlanadi.",
@@ -44,7 +40,7 @@ export const uz = {
   support: "Tayanch",
   undo: "Ortga qaytarish",
   remove: "Tanlangan kesmani o‘chirish",
-  reset: "Qayta qurish — Tozalash",
+  redo: "Bekor qilingan qadamni qaytarish",
   test: "Ko‘prikni sinash",
   pause: "Tanaffus",
   resume: "Davom etish",
@@ -169,7 +165,6 @@ export const uz = {
     attemptRow: (n, level) => `${n}-urinish · ${level}`,
   },
   intro: {
-    badge: "MATEMATIK GAMELAB",
     title: "Bridge Master",
     hello: "Salom!",
     lead: "Ikki qirg‘oq orasiga ko‘prik quring, mashinani narigi tomonga o‘tkazing va 3 yulduz yig‘ing!",
@@ -198,7 +193,6 @@ export const uz = {
     budget: "Material",
     starGoal: "3 yulduz uchun",
     tip: "Maslahat",
-    tourNote: "Robot o‘yinni qadam-baqadam, har bir tugma ustida ko‘rsatib beradi.",
   },
   // Guided lessons: every step points at the real element it talks about (see onboarding/steps.js).
   tour: {
@@ -223,7 +217,7 @@ export const uz = {
         },
         tools: {
           title: "Ikkita asbob",
-          text: "«Yo‘l» — mashina yuradigan qism, hozir shu tanlangan. «Tayanch» — ko‘prikni ushlab turadi, u keyingi bosqichda kerak bo‘ladi.",
+          text: "Sariq tugma — «Yo‘l»: mashina yuradigan qism, hozir shu tanlangan. Ko‘k tugma — «Tayanch»: ko‘prikni ushlab turadi, u keyingi bosqichda kerak bo‘ladi.",
         },
         pickFirst: {
           title: "1-qadam: A nuqta",
@@ -237,16 +231,12 @@ export const uz = {
         },
         edit: {
           title: "Adashdingizmi? Zarari yo‘q!",
-          text: "«Ortga» oxirgi qadamni qaytaradi. «O‘chirish» tanlangan bo‘lakni olib tashlaydi. «Tozalash» hammasini boshidan boshlaydi. Material qaytib keladi.",
+          text: "«Bekor» (↶) oxirgi qadamni qaytaradi. «Qayta» (↷) bekor qilganingizni yana joyiga qo‘yadi. «O‘chirish» (savat) tanlangan bo‘lakni olib tashlaydi (avval bo‘lakni bosing). Material qaytib keladi.",
         },
         road: {
           title: "Yo‘lni oxirigacha",
           text: "Xuddi shunday davom eting. Har safar ikkita nuqtani ketma-ket bosing.",
           cta: "B–C, C–D va D–E ni ulang",
-        },
-        camera: {
-          title: "Kamera",
-          text: "«3D» va «Old» tugmalari ko‘rinishni almashtiradi. Bo‘sh joyni tortsangiz, ko‘prik aylanadi.",
         },
         controls: {
           title: "Ovoz va tanaffus",
@@ -255,7 +245,7 @@ export const uz = {
         test: {
           title: "Sinab ko‘ramizmi?",
           text: "Yo‘l tayyor! Mashina ko‘prikdan o‘ta oladimi? Tekshiramiz!",
-          cta: "«Ko‘prikni sinash» tugmasini bosing",
+          cta: "Yashil «Ko‘prikni sinash» tugmasini bosing",
         },
       },
       "bridge-02": {
@@ -271,7 +261,7 @@ export const uz = {
         tool: {
           title: "Tayanch asbobi",
           text: "Endi «Tayanch» ni tanlaymiz. Bu asbob bilan ko‘prikni ushlab turuvchi chiziqlar quriladi.",
-          cta: "«Tayanch» tugmasini bosing",
+          cta: "Ko‘k «Tayanch» tugmasini bosing",
         },
         supports: {
           title: "F dan arqon tushiramiz",
@@ -285,7 +275,7 @@ export const uz = {
         test: {
           title: "Sinaymiz!",
           text: "Ko‘prik tayyor. Tayanch yordam beradimi?",
-          cta: "«Ko‘prikni sinash» tugmasini bosing",
+          cta: "Yashil «Ko‘prikni sinash» tugmasini bosing",
         },
       },
       "bridge-03": {
@@ -301,7 +291,7 @@ export const uz = {
         tool: {
           title: "Tayanchga o‘tamiz",
           text: "Endi «Tayanch» asbobini tanlang.",
-          cta: "«Tayanch» tugmasini bosing",
+          cta: "Ko‘k «Tayanch» tugmasini bosing",
         },
         fan: {
           title: "F dan hamma yoqqa",
@@ -319,7 +309,7 @@ export const uz = {
         test: {
           title: "Sinaymiz!",
           text: "Uchburchaklar tayyor. Mashina o‘tadimi?",
-          cta: "«Ko‘prikni sinash» tugmasini bosing",
+          cta: "Yashil «Ko‘prikni sinash» tugmasini bosing",
         },
       },
       "bridge-04": {

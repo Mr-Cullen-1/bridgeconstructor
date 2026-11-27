@@ -14,7 +14,7 @@ test("the single uploaded JSX runs all twenty levels offline inside an opaque sa
   expect(await frame.evaluate(() => {
     try { return !!parent.document; } catch { return false; }
   })).toBe(false);
-  await expect(game.locator(".world-canvas")).toHaveAttribute("data-renderer", "webgl");
+  await expect(game.locator(".world-canvas")).toHaveAttribute("data-renderer", "layered");
   for (let i = 0; i < 20; i++) {
     await connect(game, solutions[i]);
     await win(game);
@@ -30,7 +30,7 @@ test("the single uploaded JSX runs all twenty levels offline inside an opaque sa
   );
   expect(messages.find((m) => m.type === "ready").payload).toMatchObject({
     contractVersion: 1,
-    version: "1.1.1",
+    version: "1.2.0",
     levelIds: Array.from({ length: 20 }, (_, i) => `bridge-${String(i + 1).padStart(2, "0")}`),
   });
   await expect(game.getByRole("button", { name: "Keyingi bosqich" })).toHaveCount(0);
@@ -49,7 +49,7 @@ test("the uploaded JSX retains late-span collapse, failure events, repair and ex
   await game.getByRole("button", { name: "Ko‘prikni sinash" }).click();
   const canvas = game.locator(".world-canvas");
   await expect(canvas).toHaveAttribute("data-collapsed-edges", JSON.stringify(['["d","e"]']));
-  expect(Number(await canvas.getAttribute("data-vehicle-x"))).toBeCloseTo(6);
+  expect(Number(await canvas.getAttribute("data-vehicle-x"))).toBeCloseTo(610, 0);
   await page.waitForTimeout(200);
   await page.screenshot({ path: "output/playwright/lms-late-collapse.png" });
   await expect(game.getByRole("dialog", { name: "Yana bir yechim bor!" })).toBeVisible();

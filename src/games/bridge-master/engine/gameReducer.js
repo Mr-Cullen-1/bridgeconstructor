@@ -1,7 +1,7 @@
 import { canConnectNodes, createEdge, removeEdge } from "./buildRules.js";
 import { getNodeById } from "./graph.js";
 import { calculateTotalCost } from "./budget.js";
-import { pushHistory, undo } from "./history.js";
+import { pushHistory, undo, redo } from "./history.js";
 import { createTestRun } from "./simulation.js";
 import { calculateScore, calculateStars } from "./scoring.js";
 
@@ -13,6 +13,7 @@ export const initialState = (level, sessionId, classLevel = 5) => ({
   previousPhase: null,
   playerEdges: [],
   history: [],
+  future: [],
   selectedNodeId: null,
   selectedEdgeId: null,
   activeEdgeType: "road",
@@ -30,6 +31,7 @@ const buildingActions = new Set([
   "ADD_EDGE",
   "REMOVE_EDGE",
   "UNDO",
+  "REDO",
   "RESET_BRIDGE",
   "START_TEST",
   "CANCEL_SELECTION",
@@ -80,6 +82,7 @@ export function gameReducer(state, action) {
         ...state,
         playerEdges: [...state.playerEdges, edge],
         history: pushHistory(state.history, state.playerEdges),
+        future: [],
         selectedNodeId: null,
         selectedEdgeId: null,
         message: null,
@@ -116,6 +119,7 @@ export function gameReducer(state, action) {
         ...state,
         playerEdges: removeEdge(state.playerEdges, state.selectedEdgeId),
         history: pushHistory(state.history, state.playerEdges),
+        future: [],
         selectedEdgeId: null,
         message: null,
       };
@@ -123,7 +127,15 @@ export function gameReducer(state, action) {
     case "UNDO":
       return {
         ...state,
-        ...undo(state.history, state.playerEdges),
+        ...undo(state.history, state.playerEdges, state.future),
+        selectedNodeId: null,
+        selectedEdgeId: null,
+        message: null,
+      };
+    case "REDO":
+      return {
+        ...state,
+        ...redo(state.history, state.playerEdges, state.future),
         selectedNodeId: null,
         selectedEdgeId: null,
         message: null,
@@ -133,6 +145,7 @@ export function gameReducer(state, action) {
         ...state,
         playerEdges: [],
         history: [],
+        future: [],
         selectedNodeId: null,
         selectedEdgeId: null,
         message: null,

@@ -19,7 +19,8 @@ export const en = {
     road: "For the car to drive on",
     support: "To hold the bridge up",
   },
-  toolShort: { undo: "Undo", remove: "Remove", reset: "Clear" },
+  leave: "Back",
+  toolShort: { undo: "Undo", remove: "Remove", redo: "Redo" },
   yourJourney: "EVERY LEVEL — A NEW IDEA.",
   previousPage: "Previous page",
   nextPage: "Next page",
@@ -30,12 +31,7 @@ export const en = {
   activeTime: "Active time",
   seconds: "sec",
   collection: "Engineering adventure",
-  camera: "Camera view",
   worldName: "ALPINE VALLEY · BUILD. TEST. DISCOVER.",
-  depthView: "3D view",
-  frontView: "Front view",
-  frontShort: "Front",
-  orbitHint: "Drag an empty area to rotate the camera",
   webglError:
     "The 3D scene could not be opened. Turn on hardware acceleration in your browser and reload the page.",
   subtitle: "Every great bridge starts with a first beam.",
@@ -48,7 +44,7 @@ export const en = {
   support: "Support",
   undo: "Undo last action",
   remove: "Remove selected segment",
-  reset: "Rebuild — Clear",
+  redo: "Redo the undone step",
   test: "Test the bridge",
   pause: "Pause",
   resume: "Resume",
@@ -209,7 +205,6 @@ export const en = {
     attemptRow: (n, level) => `Attempt ${n} · ${level}`,
   },
   intro: {
-    badge: "MATH GAMELAB",
     title: "Bridge Master",
     hello: "Hi!",
     lead: "Build a bridge between two banks, drive the car across and collect 3 stars!",
@@ -238,7 +233,6 @@ export const en = {
     budget: "Material",
     starGoal: "For 3 stars",
     tip: "Tip",
-    tourNote: "The robot will show you the game step by step, right on the buttons and points.",
   },
   // Guided lessons: every step points at the real element it talks about (see onboarding/steps.js).
   tour: {
@@ -263,7 +257,7 @@ export const en = {
         },
         tools: {
           title: "Two tools",
-          text: "“Road” is the part the car drives on, and it is chosen now. “Support” holds the bridge up; you will need it in the next level.",
+          text: "The yellow button is “Road”: the part the car drives on, and it is chosen now. The blue button is “Support”: it holds the bridge up, and you will need it in the next level.",
         },
         pickFirst: {
           title: "Step 1: point A",
@@ -277,16 +271,12 @@ export const en = {
         },
         edit: {
           title: "Made a mistake? No problem!",
-          text: "“Undo” takes back your last step. “Remove” deletes the chosen piece. “Clear” starts over. The material comes back.",
+          text: "“Undo” (↶) takes back your last step. “Redo” (↷) puts back what you undid. “Remove” (bin) deletes the chosen piece. The material comes back.",
         },
         road: {
           title: "Finish the road",
           text: "Keep going the same way. Each time, tap two points one after the other.",
           cta: "Connect B–C, C–D and D–E",
-        },
-        camera: {
-          title: "Camera",
-          text: "The “3D” and “Front” buttons change the view. Drag an empty spot and the bridge turns around.",
         },
         controls: {
           title: "Sound and pause",
@@ -295,7 +285,7 @@ export const en = {
         test: {
           title: "Shall we test it?",
           text: "The road is ready! Can the car drive across? Let’s find out!",
-          cta: "Tap the “Test the bridge” button",
+          cta: "Tap the green “Test the bridge” button",
         },
       },
       "bridge-02": {
@@ -311,7 +301,7 @@ export const en = {
         tool: {
           title: "The Support tool",
           text: "Now we choose “Support”. With this tool we build the lines that hold the bridge up.",
-          cta: "Tap the “Support” button",
+          cta: "Tap the blue “Support” button",
         },
         supports: {
           title: "Lower ropes from F",
@@ -325,7 +315,7 @@ export const en = {
         test: {
           title: "Let’s test it!",
           text: "The bridge is ready. Will the support help?",
-          cta: "Tap the “Test the bridge” button",
+          cta: "Tap the green “Test the bridge” button",
         },
       },
       "bridge-03": {
@@ -341,7 +331,7 @@ export const en = {
         tool: {
           title: "On to supports",
           text: "Now choose the “Support” tool.",
-          cta: "Tap the “Support” button",
+          cta: "Tap the blue “Support” button",
         },
         fan: {
           title: "From F in every direction",
@@ -359,7 +349,7 @@ export const en = {
         test: {
           title: "Let’s test it!",
           text: "The triangles are ready. Will the car make it?",
-          cta: "Tap the “Test the bridge” button",
+          cta: "Tap the green “Test the bridge” button",
         },
       },
       "bridge-04": {

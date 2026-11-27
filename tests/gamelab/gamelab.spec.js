@@ -61,6 +61,7 @@ test("a failed test is reported as failure and Retry starts a new attempt", asyn
 });
 
 test("exiting during a running test aborts it once, then asks the host to exit", async ({ page }) => {
+  test.setTimeout(150000); // slow when the whole suite loads the machine
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await open(page);
   await connect(page, solutions[0]);

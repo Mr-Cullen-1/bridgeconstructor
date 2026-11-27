@@ -73,7 +73,7 @@ const supportTool = { type: "SET_EDGE_TYPE", edgeType: "support" };
 describe("lessons", () => {
   it("teaches levels 1-3 in full and gives a short note to the levels that bring something new", () => {
     expect(lessonFor(level(1)).steps.map((s) => s.id)).toEqual([
-      "goal", "level", "budget", "tools", "pickFirst", "pickSecond", "edit", "road", "camera", "controls", "test",
+      "goal", "level", "budget", "tools", "pickFirst", "pickSecond", "edit", "road", "controls", "test",
     ]);
     expect(lessonFor(level(2)).steps.map((s) => s.id)).toEqual(["new", "road", "tool", "supports", "triangles", "test"]);
     expect(lessonFor(level(3)).steps.map((s) => s.id)).toEqual(["idea", "road", "tool", "fan", "triangles", "star", "test"]);

@@ -2,8 +2,9 @@ import { test, expect } from "@playwright/test";
 import { solutions } from "../../src/games/bridge-master/__tests__/fixtures/solutions.js";
 import { connect, start, win, choose } from "./helpers.js";
 for (const [missing, collapsed, x] of [
-  ["c", ['["b","c"]', '["c","d"]'], -2],
-  ["e", ['["d","e"]'], 6],
+  // x is where the truck stopped, in level units (level 3: b is at 260, c at 400, e at 680).
+  ["c", ['["b","c"]', '["c","d"]'], 330],
+  ["e", ['["d","e"]'], 610],
 ]) {
   test(`collapse follows missing ${missing} support instead of the first span`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -15,7 +16,7 @@ for (const [missing, collapsed, x] of [
     await page.getByRole("button", { name: "Ko‘prikni sinash" }).click();
     const canvas = page.locator(".world-canvas");
     await expect(canvas).toHaveAttribute("data-collapsed-edges", JSON.stringify(collapsed));
-    expect(Number(await canvas.getAttribute("data-vehicle-x"))).toBeCloseTo(x);
+    expect(Number(await canvas.getAttribute("data-vehicle-x"))).toBeCloseTo(x, 0);
     await page.waitForTimeout(250);
     await page.screenshot({ path: `output/playwright/collapse-missing-${missing}.png` });
     await expect(page.getByRole("dialog", { name: "Yana bir yechim bor!" })).toBeVisible();
@@ -181,7 +182,7 @@ test("valid weak bridge fails, keeps construction and succeeds after repair", as
   await page.getByRole("button", { name: "Nuqta F" }).click();
   await win(page);
 });
-test("keyboard, delete, undo, reset, budget and sound controls work", async ({
+test("keyboard, delete, undo, redo, budget and sound controls work", async ({
   page,
 }) => {
   await start(page);
@@ -194,7 +195,10 @@ test("keyboard, delete, undo, reset, budget and sound controls work", async ({
   await expect(page.getByLabel("Material sarfi")).toContainText("0 / 80");
   await page.keyboard.press("Control+z");
   await expect(page.getByLabel("Material sarfi")).toContainText("14 / 80");
-  await page.getByRole("button", { name: "Qayta qurish" }).click();
+  await page.getByRole("button", { name: "Bekor qilingan qadamni qaytarish" }).click();
+  await expect(page.getByLabel("Material sarfi")).toContainText("0 / 80");
+  await page.keyboard.press("Control+z");
+  await page.keyboard.press("Control+y");
   await expect(page.getByLabel("Material sarfi")).toContainText("0 / 80");
   await page.getByRole("button", { name: "Ovozni yoqish" }).click();
   await expect(

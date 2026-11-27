@@ -1,5 +1,7 @@
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
+import PackIcon from "./PackIcon.jsx";
+import Mascot from "./Mascot.jsx";
 const confetti = Array.from({ length: 30 }, (_, i) => ({
   left: (i * 37 + 11) % 100,
   delay: (i % 10) * 0.07,
@@ -30,6 +32,7 @@ export default function ResultModal({
           ))}
         </div>
       )}
+      <Mascot pose={success ? "success" : "retry"} className="modal-mascot" />
       <div className="stars" aria-label={t.stars(result.stars)}>
         {[1, 2, 3].map((n) => (
           <Icon
@@ -68,7 +71,7 @@ export default function ResultModal({
           <>
             <button className="primary" onClick={isLast ? onSelect : onNext}>
               {isLast ? t.levels : t.next}
-              <Icon name="arrow" />
+              <PackIcon name="arrow-right" />
             </button>
             <button className="secondary" onClick={onReplay}>
               {t.replay}
@@ -77,7 +80,7 @@ export default function ResultModal({
         ) : (
           <button className="primary" onClick={onRetry}>
             {t.retry}
-            <Icon name="reset" />
+            <PackIcon name="restart" />
           </button>
         )}
         {(!success || !isLast) && <button className="text-button" onClick={onSelect}>{t.levels}</button>}

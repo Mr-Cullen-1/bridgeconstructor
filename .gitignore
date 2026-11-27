@@ -9,3 +9,6 @@ playwright-report/
 *.log
 .env*
 !.env.example
+
+# Design pack source art (40 MB); the optimised copies live in src/games/bridge-master/assets/design
+design-source/

@@ -5,9 +5,14 @@ export function useGameInput({ dispatch }) {
         event.target.closest('input,textarea,select,[contenteditable="true"]')
       )
         return;
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+      const mod = event.ctrlKey || event.metaKey;
+      if (mod && event.key.toLowerCase() === "z" && !event.shiftKey) {
         event.preventDefault();
         dispatch({ type: "UNDO" });
+      }
+      if (mod && (event.key.toLowerCase() === "y" || (event.key.toLowerCase() === "z" && event.shiftKey))) {
+        event.preventDefault();
+        dispatch({ type: "REDO" });
       }
       if (event.key === "Escape") dispatch({ type: "CANCEL_SELECTION" });
       if (["Delete", "Backspace"].includes(event.key)) {

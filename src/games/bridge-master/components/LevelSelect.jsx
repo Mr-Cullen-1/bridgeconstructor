@@ -1,5 +1,5 @@
 import Modal from "./Modal.jsx";
-import Icon from "./Icon.jsx";
+import PackIcon from "./PackIcon.jsx";
 import { useState } from "react";
 import { levelText } from "../i18n/index.js";
 
@@ -42,14 +42,14 @@ export default function LevelSelect({ levels, t, onSelect, onClose, scores, curr
           <nav className="level-pagination" aria-label={t.levelPages}>
             <button className="icon-button previous-page" aria-label={t.previousPage}
               disabled={page === 0} onClick={() => setPage(page - 1)}>
-              <Icon name="arrow" size={16} />
+              <PackIcon name="arrow-right" size={22} />
             </button>
             <span aria-live="polite" aria-atomic="true">
               {start + 1}–{Math.min(start + pageSize, levels.length)} / {levels.length}
             </span>
             <button className="icon-button" aria-label={t.nextPage}
               disabled={page === pageCount - 1} onClick={() => setPage(page + 1)}>
-              <Icon name="arrow" size={16} />
+              <PackIcon name="arrow-right" size={22} />
             </button>
           </nav>
         )}

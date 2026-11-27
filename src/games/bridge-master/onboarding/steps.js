@@ -71,7 +71,6 @@ function firstBridge(level) {
       delay: 700,
       done: ({ roadReady }) => roadReady,
     },
-    { id: "camera", kind: "info", targets: ["camera"] },
     { id: "controls", kind: "info", targets: ["controls"] },
     testStep,
   ];

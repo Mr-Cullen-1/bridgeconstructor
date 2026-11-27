@@ -53,7 +53,8 @@ for (const viewport of [
     const inspect = async (state) => {
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
-      await expect(dialog).toHaveCSS("transform", "none");
+      await expect(dialog).toBeVisible();
+      await page.waitForTimeout(450); // the entrance animation
       for (const button of await dialog.getByRole("button").all()) {
         const box = await button.boundingBox();
         expect(box.y).toBeGreaterThanOrEqual(0);

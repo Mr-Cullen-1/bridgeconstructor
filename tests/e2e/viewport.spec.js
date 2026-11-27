@@ -15,7 +15,7 @@ for (const viewport of [
   { width: 320, height: 568 },
   { width: 800, height: 360 },
 ]) {
-  test(`3D game and controls fit viewport ${viewport.width}x${viewport.height}`, async ({
+  test(`game and controls fit viewport ${viewport.width}x${viewport.height}`, async ({
     page,
   }) => {
     await page.setViewportSize(viewport);
@@ -33,7 +33,7 @@ for (const viewport of [
       }));
     expect(await fits()).toEqual({ width: true, height: true, controls: true });
     await page.getByRole("button", { name: "Qurishni boshlash" }).click();
-    await expect(page.locator('canvas[data-renderer="webgl"]')).toBeVisible();
+    await expect(page.locator('.world-canvas[data-renderer="layered"]')).toBeVisible();
     const toolbar = await page.locator(".toolbar").boundingBox();
     expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(viewport.height);
     for (const button of await page.locator(".toolbar button").all()) {
@@ -64,13 +64,11 @@ for (const viewport of [
   });
 }
 
-test("camera changes keep node hit targets aligned and gameplay usable", async ({
+test("selecting and deleting a segment keeps node hit targets aligned and gameplay usable", async ({
   page,
 }) => {
   await start(page);
-  await page.getByRole("button", { name: "Old ko‘rinish" }).click();
   await connect(page, solutions[0]);
-  await page.getByRole("button", { name: "3D ko‘rinish" }).click();
   await page.getByRole("button", { name: "Kesma A–B" }).click();
   await page
     .getByRole("button", { name: "Tanlangan kesmani o‘chirish" })
@@ -83,7 +81,7 @@ test("normal-motion world animates and a hidden tab pauses the whole simulation"
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await start(page);
-  const canvas = page.locator('canvas[data-renderer="webgl"]');
+  const canvas = page.locator('.world-canvas[data-renderer="layered"]');
   await expect(canvas).toBeVisible();
   const moving = await canvas.screenshot();
   await page.waitForTimeout(450);

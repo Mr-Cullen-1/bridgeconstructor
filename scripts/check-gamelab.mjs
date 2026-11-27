@@ -34,7 +34,7 @@ const levelIds = await Promise.all(
 );
 assert.deepEqual(validateManifest(manifest), [], "Manifest must satisfy contract §4");
 assert.deepEqual(manifest, createManifest(levelIds), "Manifest must match the level pack");
-for (const token of [...levelIds, ".bridge-app", "WebGLRenderer", "Permission is hereby granted", "onAttemptStart", "onRetrySave"])
+for (const token of [...levelIds, ".bridge-app", "sc-root", "data:image/webp;base64,", "onAttemptStart", "onRetrySave"])
   assert(source.includes(token), `Missing embedded game content/license: ${token}`);
 console.log(JSON.stringify({
   file: "delivery/gamelab/Game.jsx",
